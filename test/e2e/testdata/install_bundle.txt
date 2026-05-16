@@ -1,0 +1,24 @@
+# Add local repo as a source
+exec axen source add ./local-repo
+
+# Test default bundle auto-install
+# Running without skills or bundles should install skill2 automatically due to default bundle
+exec axen install local-repo -t claude
+stdout 'Auto-installing default bundle'
+stdout 'skill2'
+! stdout 'skill1'
+
+# Test bundle flag
+# Should install only skill1 since we pass frontend bundle
+exec axen install local-repo -b frontend -t claude
+stdout 'skill1'
+! stdout 'skill2'
+
+# Test invalid bundle warning
+exec axen install local-repo -b unknown_bundle -t claude
+stdout 'Bundle .unknown_bundle. not found in manifest'
+
+-- local-repo/axen.json --
+{"axen_version": "1", "name": "local-repo", "skills": {"skill1": {"path": "."}, "skill2": {"path": "."}}, "bundles": {"frontend": {"skills": ["skill1"]}, "default": {"is_default": true, "skills": ["skill2"]}}}
+-- local-repo/SKILL.md --
+# Skill

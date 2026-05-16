@@ -1,0 +1,28 @@
+env TARGET=$WORK/.cursor/skills
+env SRC=$WORK/source
+
+# Register source and try to install skill_a (which exists on disk but is untracked)
+exec axen source add $SRC
+exec axen install source --all --targets=cursor
+
+# Default behavior: it should warn/prompt and select "Skip all" in MockPrompter, keeping manual files and NOT installing the new skill files
+exists $TARGET/skill_a/manual.txt
+! exists $TARGET/skill_a/SKILL.md
+
+# Verify output mentions the warning and suggests --force command
+stdout 'Warning: The following skill\(s\) already exist'
+stdout 'axen install source --force'
+
+# Now force install skill_a
+exec axen install source --all --targets=cursor --force
+
+# Under --force, it should overwrite the directory, deleting manual files and installing the new skill files
+! exists $TARGET/skill_a/manual.txt
+exists $TARGET/skill_a/SKILL.md
+
+-- .cursor/skills/skill_a/manual.txt --
+pre-existing
+-- source/skill_a/SKILL.md --
+name: skill_a
+-- source/axen.json --
+{"axen_version": "1", "name": "mysrc", "skills":{"skill_a":{"path":"skill_a"}}}

@@ -1,0 +1,39 @@
+# Setup mock source
+mkdir mock-source/skill1
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill1": { "path": "skill1" }
+  }
+}
+-- mock-source/skill1/SKILL.md --
+# Skill 1
+
+# Add source and install
+exec axen source add ./mock-source
+exec axen install mock-source --skills skill1 --targets claude
+
+exists $AXEN_TEST_HOME/.claude/skills/skill1
+
+# Simulate upstream change (skill1 removed, skill2 added)
+mkdir mock-source/skill2
+rm mock-source/skill1/SKILL.md
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill2": { "path": "skill2" }
+  }
+}
+-- mock-source/skill2/SKILL.md --
+# Skill 2
+
+# Update
+exec axen update mock-source
+
+# Verify skill1 was pruned and skill2 was installed (because syncAll is on by default)
+! exists $AXEN_TEST_HOME/.claude/skills/skill1
+exists $AXEN_TEST_HOME/.claude/skills/skill2

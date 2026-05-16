@@ -1,0 +1,22 @@
+# Setup mock source
+mkdir mock-source/skill1
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill1": { "path": "skill1" }
+  }
+}
+-- mock-source/skill1/SKILL.md --
+# Skill 1
+
+# Add source
+exec axen source add ./mock-source
+
+# Install skill1
+exec axen install mock-source --skills skill1 --targets claude
+
+# Run doctor
+exec axen doctor
+stdout 'Everything looks good'

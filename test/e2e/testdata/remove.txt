@@ -1,0 +1,32 @@
+# Setup mock source
+mkdir mock-source/skill1
+mkdir mock-source/skill2
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill1": { "path": "skill1" },
+    "skill2": { "path": "skill2" }
+  }
+}
+-- mock-source/skill1/SKILL.md --
+# Skill 1
+-- mock-source/skill2/SKILL.md --
+# Skill 2
+
+# Add source and install
+exec axen source add ./mock-source
+exec axen install mock-source --all --targets claude
+
+exists $AXEN_TEST_HOME/.claude/skills/skill1
+exists $AXEN_TEST_HOME/.claude/skills/skill2
+
+# Remove single skill with exclude
+exec axen remove mock-source --skills skill1 --exclude
+! exists $AXEN_TEST_HOME/.claude/skills/skill1
+exists $AXEN_TEST_HOME/.claude/skills/skill2
+
+# Remove all
+exec axen remove mock-source --all
+! exists $AXEN_TEST_HOME/.claude/skills/skill2

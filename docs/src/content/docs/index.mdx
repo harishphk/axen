@@ -1,0 +1,38 @@
+---
+title: Axen Documentation
+description: The universal package manager for AI Agent Skills.
+template: splash
+hero:
+  tagline: A decentralized, configuration-driven registry manager bridging the fragmented AI agent ecosystem. Write skills once, install them across 50+ tools instantly.
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Getting Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/harishphk/axen
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## The Universal Package Manager for Prompts
+
+The AI ecosystem is fragmented. Axen solves this by acting as a decentralized registry manager, allowing you to seamlessly share and consume custom instructions (skills) without worrying about proprietary folder structures.
+
+<CardGrid stagger>
+	<Card title="Decentralized Skill Sources" icon="rocket">
+		Don't rely on a single central registry. Subscribe to multiple Git repositories or local directories simultaneously (`axen source add`) to curate your perfect prompt library.
+	</Card>
+	<Card title="Universal Agent Compatibility" icon="laptop">
+		Axen features built-in intelligence for the specific configuration paths of over **50 AI coding assistants** (Cursor, Windsurf, Copilot, Devin, Goose, OpenHands, and more).
+	</Card>
+	<Card title="Configuration-Driven" icon="setting">
+		Through `axen-config.json` and manifests, you control exactly what gets installed. Define custom agent targets in seconds if they aren't natively supported yet.
+	</Card>
+	<Card title="Automated Sync & Pruning" icon="random">
+		Run `axen update` and Axen automatically fetches the latest Git commits from all sources, pushes updates to all targets, and intelligently prunes any deprecated skills.
+	</Card>
+</CardGrid>

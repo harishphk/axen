@@ -1,0 +1,40 @@
+# Test declarative state tracking and orphan pruning
+
+# Add a local repo that acts as our bundle provider
+exec axen source add ./bundle-repo
+
+# 1. Install frontend bundle
+exec axen install bundle-repo -b frontend -t claude
+stdout 'skill-a'
+! stdout 'skill-b'
+! stdout 'skill-c'
+
+# Check lockfile tracking
+grep '"frontend"' .axen/axen-lock.json
+
+# 2. Update repo: bundle changes, skill-a removed, skill-b added
+exec mv new-axen.json bundle-repo/axen.json
+exec touch bundle-repo/axen.json
+exec axen update bundle-repo
+stderr 'pruned 2 orphaned skill'
+grep '"skill-b"' .axen/axen-lock.json
+! grep '"skill-a"' .axen/axen-lock.json
+
+# 3. Explicitly install skill-c
+exec axen install bundle-repo -s skill-c -t claude
+stdout 'skill-c'
+grep '"skill-c"' .axen/axen-lock.json
+
+# 4. Remove frontend bundle
+exec axen remove bundle-repo -b frontend
+# skill-b should be removed because it was only in the bundle
+! grep '"skill-b"' .axen/axen-lock.json
+# skill-c should stay because it was explicit
+grep '"skill-c"' .axen/axen-lock.json
+
+-- bundle-repo/axen.json --
+{"axen_version": "1", "name": "bundle-repo", "skills": {"skill-a": {"path": "."}, "skill-c": {"path": "."}, "dummy": {"path": "."}}, "bundles": {"frontend": {"skills": ["skill-a"]}, "default": {"is_default": true, "skills": ["dummy"]}}}
+-- bundle-repo/SKILL.md --
+# Skill
+-- new-axen.json --
+{"axen_version": "1", "name": "bundle-repo", "skills": {"skill-b": {"path": "."}, "skill-c": {"path": "."}}, "bundles": {"frontend": {"skills": ["skill-b"]}}}

@@ -1,0 +1,43 @@
+# Setup a mock local source directory
+mkdir mock-source/skill1
+mkdir mock-source/skill2
+
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill1": { "path": "skill1" },
+    "skill2": { "path": "skill2" }
+  }
+}
+-- mock-source/skill1/SKILL.md --
+# Skill 1
+-- mock-source/skill2/SKILL.md --
+# Skill 2
+
+# Add the local source
+exec axen source add ./mock-source
+
+# Verify source was added to lockfile
+exists $AXEN_TEST_HOME/.axen/sources.json
+grep 'mock-source' $AXEN_TEST_HOME/.axen/sources.json
+
+# Install skill1
+exec axen install mock-source --skills skill1 --targets claude
+
+# Verify skill1 was installed correctly
+exists $AXEN_TEST_HOME/.claude/skills/skill1
+exists $AXEN_TEST_HOME/.claude/skills/skill1/SKILL.md
+! exists $AXEN_TEST_HOME/.claude/skills/skill2
+
+# List skills to verify output
+exec axen list
+stdout '1 namespace\(s\), 1 skill\(s\) tracked'
+stdout 'skill1'
+
+# Remove skill1
+exec axen remove mock-source --skills skill1 --exclude
+
+# Verify skill1 was physically removed
+! exists $AXEN_TEST_HOME/.claude/skills/skill1

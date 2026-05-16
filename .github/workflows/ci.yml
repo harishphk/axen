@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Lint, Test, and Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Lint Commit / PR Title
+        run: |
+          regex="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_-]+\))?:\s.+$"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            title="${{ github.event.pull_request.title }}"
+            echo "Checking Pull Request title: '$title'"
+            if [[ ! "$title" =~ $regex ]]; then
+              echo "❌ Error: Pull Request title does not follow Conventional Commits standard!"
+              echo "Expected format: <type>(<scope>): <description>"
+              echo "Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+              echo "Example: feat(cli): add untracked conflicts prompt"
+              exit 1
+            fi
+          else
+            commit_msg=$(git log -1 --pretty=format:"%s")
+            echo "Checking latest commit message: '$commit_msg'"
+            # Allow release commits or merges to bypass if needed, but standard commits must match.
+            # Usually merge commits start with "Merge "
+            if [[ ! "$commit_msg" =~ $regex && ! "$commit_msg" =~ ^Merge\ .* ]]; then
+              echo "❌ Error: Commit message does not follow Conventional Commits standard!"
+              echo "Expected format: <type>(<scope>): <description>"
+              echo "Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+              echo "Example: feat(cli): add untracked conflicts prompt"
+              exit 1
+            fi
+          fi
+          echo "✓ Commit standard check passed!"
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Run Tests
+        run: go test -v -race -cover ./...
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@v2.26.1
+        with:
+          args: -exclude=G104,G122,G204,G301,G304,G306,G703 ./...
+
+      - name: Build Binary (Dry Run)
+        run: go build -v ./cmd/axen
