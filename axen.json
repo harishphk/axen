@@ -1,0 +1,9 @@
+{
+  "axen_version": "1",
+  "name": "axen",
+  "skills": {
+    "hello-world": {
+      "path": "hello-world"
+    }
+  }
+}
