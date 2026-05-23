@@ -1,0 +1,22 @@
+# Setup mock source repository
+mkdir source1/skill_a
+exec axen init -d source1
+
+# Add source with custom name
+exec axen source add ./source1 --name custom-name
+
+# Verify list shows the custom name
+exec axen source list
+stdout 'custom-name'
+
+# Verify lockfile has the custom name
+exists $AXEN_TEST_HOME/.axen/axen-lock.json
+grep 'custom-name' $AXEN_TEST_HOME/.axen/axen-lock.json
+
+-- source1/skill_a/SKILL.md --
+---
+name: skill-a
+description: A mock skill
+version: 1.0.0
+---
+Instruction for A

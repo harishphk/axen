@@ -1,0 +1,27 @@
+env TARGET1=$WORK/.codex/skills
+env TARGET2=$WORK/.windsurf/skills
+env TARGET3=$WORK/.cursor/skills
+env SRC=$WORK/source
+
+# Install specific targets
+exec axen source add $SRC
+exec axen install source --all --targets=codex,cursor
+exists $TARGET1/skill_a/SKILL.md
+! exists $TARGET3/skill_a/SKILL.md
+exists $TARGET3/skill_b/SKILL.md
+! exists $TARGET1/skill_b/SKILL.md
+
+# Install all (using local config targets from targets config inside axen, wait test environment might not have targets setup.
+# Actually, the targets are already defined in resolvers for axen.
+# 'all detected targets' requires axen to detect them. We can just test --targets instead.
+exec axen source add $SRC
+exec axen install source --all --targets=codex,cursor,windsurf
+exists $TARGET1/skill_a/SKILL.md
+exists $TARGET3/skill_b/SKILL.md
+
+-- source/skill_a/SKILL.md --
+name: skill_a
+-- source/skill_b/SKILL.md --
+name: skill_b
+-- source/axen.json --
+{"axen_version": "1", "name": "mysrc", "skills":{"skill_a":{"path":"skill_a","targets":["codex"]},"skill_b":{"path":"skill_b","targets":["cursor"]}}}

@@ -24,6 +24,19 @@ func ReadLockfile() (*models.Lockfile, error) {
 		lockfile.Namespaces = make(map[string]models.NamespaceEntry)
 	}
 
+	// Initialize nested maps for each namespace
+	for name, entry := range lockfile.Namespaces {
+		if entry.Skills.Installed == nil {
+			entry.Skills.Installed = make(map[string]models.LockfileSkill)
+		}
+		lockfile.Namespaces[name] = entry
+	}
+
+	if err := models.ValidateLockfile(&lockfile); err != nil {
+		utils.Warn("Lockfile validation failed (%s), starting fresh", err.Error())
+		return models.NewLockfile(), nil
+	}
+
 	return &lockfile, nil
 }
 
@@ -50,11 +63,7 @@ func RemoveSkillFromLockfile(lockfile *models.Lockfile, namespaceName string, sk
 		return lockfile
 	}
 
-	delete(ns.Skills, skillName)
-
-	if len(ns.Skills) == 0 {
-		return RemoveNamespace(lockfile, namespaceName)
-	}
+	delete(ns.Skills.Installed, skillName)
 
 	lockfile.Namespaces[namespaceName] = ns
 	return lockfile
@@ -62,7 +71,7 @@ func RemoveSkillFromLockfile(lockfile *models.Lockfile, namespaceName string, sk
 
 func FindSkillNamespace(lockfile *models.Lockfile, skillName string) (string, *models.NamespaceEntry) {
 	for name, entry := range lockfile.Namespaces {
-		if _, ok := entry.Skills[skillName]; ok {
+		if _, ok := entry.Skills.Installed[skillName]; ok {
 			return name, &entry
 		}
 	}
@@ -72,7 +81,7 @@ func FindSkillNamespace(lockfile *models.Lockfile, skillName string) (string, *m
 func GetAllInstalledSkills(lockfile *models.Lockfile) []string {
 	var skills []string
 	for _, entry := range lockfile.Namespaces {
-		for skillName := range entry.Skills {
+		for skillName := range entry.Skills.Installed {
 			skills = append(skills, skillName)
 		}
 	}

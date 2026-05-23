@@ -3,6 +3,8 @@ package resolvers
 import (
 	"axen/internal/models"
 	"axen/internal/utils"
+	"path/filepath"
+	"strings"
 )
 
 var cachedTargetPaths map[string]string
@@ -53,6 +55,23 @@ func GetKnownTargets() []string {
 	return keys
 }
 
+// GetDetectedTargets returns only targets whose parent agent directory
+// exists on disk. For example, "cursor" (~/.cursor/skills/) is only returned
+// if ~/.cursor/ exists, meaning the user actually has Cursor installed.
+func GetDetectedTargets() []string {
+	targets := GetTargetPaths()
+	var detected []string
+	for name, path := range targets {
+		expanded := ExpandTilde(path)
+		// Strip the trailing "skills/" (or last segment) to get the parent agent dir
+		parentDir := filepath.Dir(strings.TrimSuffix(expanded, "/"))
+		if utils.PathExists(parentDir) {
+			detected = append(detected, name)
+		}
+	}
+	return detected
+}
+
 func IsKnownTarget(targetName string) bool {
 	targets := GetTargetPaths()
 	_, ok := targets[targetName]
@@ -62,3 +81,4 @@ func IsKnownTarget(targetName string) bool {
 func ResetTargetPathCache() {
 	cachedTargetPaths = nil
 }
+

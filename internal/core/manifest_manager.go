@@ -20,6 +20,10 @@ func ReadManifest(dirPath string) (*models.Manifest, error) {
 		return nil, utils.NewManifestError("Invalid " + ManifestFilename + ": " + err.Error())
 	}
 
+	if err := models.ValidateManifest(&manifest); err != nil {
+		return nil, utils.NewManifestError(err.Error())
+	}
+
 	return &manifest, nil
 }
 
@@ -34,7 +38,7 @@ func GenerateManifest(name string, skills []ScannedSkill, defaultTargets []strin
 	}
 
 	for _, skill := range skills {
-		version, _ := skill.Frontmatter.Metadata["version"]
+		version := skill.Frontmatter.Metadata["version"]
 		manifest.Skills[skill.Frontmatter.Name] = models.SkillEntry{
 			Path:    skill.RelativePath,
 			Version: version,
@@ -63,7 +67,7 @@ func MergeManifest(existing *models.Manifest, scanned []ScannedSkill) *models.Ma
 		name := skill.Frontmatter.Name
 		scannedNames[name] = true
 
-		version, _ := skill.Frontmatter.Metadata["version"]
+		version := skill.Frontmatter.Metadata["version"]
 
 		if existingSkill, ok := merged.Skills[name]; ok {
 			if version == "" {

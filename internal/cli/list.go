@@ -3,70 +3,85 @@ package cli
 import (
 	"axen/internal/core"
 	"axen/internal/utils"
+	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "Display all installed skills",
-	Run: func(cmd *cobra.Command, args []string) {
-		lockfile, err := core.ReadLockfile()
-		if err != nil {
-			utils.Fatal(err)
-			return
-		}
-
-		if len(lockfile.Namespaces) == 0 {
-			utils.Warn("No skills installed. Use `axen install <source>` to get started.")
-			return
-		}
-
-		totalSkills := 0
-
-		for name, entry := range lockfile.Namespaces {
-			sourceLabel := "(local)"
-			if entry.Type == "git" {
-				sourceLabel = "(" + entry.Source + ")"
+func NewCmdList(deps *Dependencies) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Display all installed skills",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lockfile, err := core.ReadLockfile()
+			if err != nil {
+				return err
 			}
 
-			pterm.Printf("\n%s %s\n", pterm.LightCyan(name), pterm.Gray(sourceLabel))
-			
-			ref := entry.Ref
-			if len(ref) > 8 {
-				ref = ref[:8]
-			}
-			updated := strings.Split(entry.UpdatedAt, "T")[0]
-			pterm.Println(pterm.Gray("  ref: " + ref + " · updated: " + updated))
-
-			if len(entry.Skills) == 0 {
-				pterm.Println(pterm.Gray("  (no skills)"))
-				continue
+			if len(lockfile.Namespaces) == 0 {
+				utils.Warn("No skills installed. Use `axen source add <url>` to get started.")
+				return nil
 			}
 
-			var skillNames []string
-			for s := range entry.Skills {
-				skillNames = append(skillNames, s)
-			}
+			cache, _ := core.ReadSourcesIndex()
+			totalSkills := 0
 
-			for i, skillName := range skillNames {
-				isLast := i == len(skillNames)-1
-				prefix := "  ├── "
-				if isLast {
-					prefix = "  └── "
+			// Sort namespace names for deterministic output
+			var nsNames []string
+			for name := range lockfile.Namespaces {
+				nsNames = append(nsNames, name)
+			}
+			sort.Strings(nsNames)
+
+			for _, name := range nsNames {
+				entry := lockfile.Namespaces[name]
+				sourceLabel := "(local)"
+				if entry.Type == "git" {
+					sourceLabel = "(" + entry.Source + ")"
 				}
-				pterm.Printf("%s%s\n", pterm.Gray(prefix), pterm.White(skillName))
+
+				pterm.Printf("\n%s %s\n", pterm.LightCyan(name), pterm.Gray(sourceLabel))
+				
+				ref := entry.Ref
+				if len(ref) > 8 {
+					ref = ref[:8]
+				}
+				updated := strings.Split(entry.UpdatedAt, "T")[0]
+				pterm.Println(pterm.Gray("  ref: " + ref + " · updated: " + updated))
+
+				if len(entry.Skills.Installed) == 0 {
+					pterm.Println(pterm.Gray("  (no skills installed)"))
+					if cacheNs, ok := cache.Namespaces[name]; ok && len(cacheNs.Available) > 0 {
+						pterm.Println(pterm.Gray(fmt.Sprintf("  %d skill(s) available — run `axen install %s`", len(cacheNs.Available), name)))
+					}
+					continue
+				}
+
+				// Sort skill names for deterministic output
+				var skillNames []string
+				for s := range entry.Skills.Installed {
+					skillNames = append(skillNames, s)
+				}
+				sort.Strings(skillNames)
+
+				for i, skillName := range skillNames {
+					isLast := i == len(skillNames)-1
+					prefix := "  ├── "
+					if isLast {
+						prefix = "  └── "
+					}
+					pterm.Printf("%s%s\n", pterm.Gray(prefix), pterm.White(skillName))
+				}
+
+				totalSkills += len(skillNames)
 			}
 
-			totalSkills += len(skillNames)
-		}
-
-		pterm.Printf("\n%s skill(s) installed across %s source(s)\n\n", pterm.Bold.Sprintf("%d", totalSkills), pterm.Bold.Sprintf("%d", len(lockfile.Namespaces)))
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(listCmd)
+			pterm.Printf("\n%s skill(s) installed across %s source(s)\n\n", pterm.Bold.Sprintf("%d", totalSkills), pterm.Bold.Sprintf("%d", len(lockfile.Namespaces)))
+			return nil
+		},
+	}
+	return cmd
 }

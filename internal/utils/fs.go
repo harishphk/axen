@@ -2,11 +2,13 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
 
 func EnsureDir(dirPath string) error {
 	err := os.MkdirAll(dirPath, 0755)
@@ -34,6 +36,26 @@ func CopyDir(src, dest string) error {
 			return EnsureDir(destPath)
 		}
 
+		if info.Mode()&fs.ModeSymlink != 0 {
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			// Security: resolve the symlink to an absolute path and ensure it
+			// stays within the source directory. This prevents a malicious skill
+			// repo from escaping its sandbox via a symlink (e.g. "evil" -> /etc/passwd).
+			resolvedTarget := target
+			if !filepath.IsAbs(target) {
+				resolvedTarget = filepath.Join(filepath.Dir(path), target)
+			}
+			resolvedTarget = filepath.Clean(resolvedTarget)
+			cleanSrc := filepath.Clean(src)
+			if !strings.HasPrefix(resolvedTarget, cleanSrc+string(filepath.Separator)) && resolvedTarget != cleanSrc {
+				return fmt.Errorf("symlink %q escapes skill directory (target: %q): skipping for safety", path, target)
+			}
+			return os.Symlink(target, destPath)
+		}
+
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -53,7 +75,7 @@ func RemoveDir(dirPath string) error {
 
 func PathExists(p string) bool {
 	_, err := os.Stat(p)
-	return !os.IsNotExist(err)
+	return err == nil
 }
 
 func ReadJson[T any](filePath string) (T, error) {
@@ -78,8 +100,13 @@ func WriteJson(filePath string, data any) error {
 		return err
 	}
 	bytes = append(bytes, '\n')
-	if err := os.WriteFile(filePath, bytes, 0644); err != nil {
-		return NewFileSystemError("Failed to write JSON", filePath)
+	tmpPath := filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, bytes, 0644); err != nil {
+		return NewFileSystemError("Failed to write JSON temp file", tmpPath)
+	}
+	if err := os.Rename(tmpPath, filePath); err != nil {
+		os.Remove(tmpPath)
+		return NewFileSystemError("Failed to atomically rename JSON file", filePath)
 	}
 	return nil
 }

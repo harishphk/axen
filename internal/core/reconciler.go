@@ -12,6 +12,8 @@ type ReconcileOptions struct {
 	DefaultTargets []string
 	SkillFilter    []string
 	OldSkillsState map[string]models.LockfileSkill
+	OldExcluded    []string
+	SyncAll        bool
 }
 
 func ReconcileLockfile(
@@ -30,8 +32,10 @@ func ReconcileLockfile(
 		}
 	}
 
-	newSkillsRecord := make(map[string]models.LockfileSkill)
+	// Build the new installed skills record
+	newInstalledRecord := make(map[string]models.LockfileSkill)
 
+	// Preserve previously installed skills that aren't in the current filter
 	if len(options.SkillFilter) > 0 && options.OldSkillsState != nil {
 		skillFilterMap := make(map[string]bool)
 		for _, sf := range options.SkillFilter {
@@ -39,7 +43,7 @@ func ReconcileLockfile(
 		}
 		for oldSkillName, oldSkillInfo := range options.OldSkillsState {
 			if !skillFilterMap[oldSkillName] {
-				newSkillsRecord[oldSkillName] = oldSkillInfo
+				newInstalledRecord[oldSkillName] = oldSkillInfo
 			}
 		}
 	}
@@ -56,7 +60,7 @@ func ReconcileLockfile(
 		sort.Strings(defaultTargetsSorted)
 
 		isOverride := strings.Join(skillTargets, ",") != strings.Join(defaultTargetsSorted, ",")
-		
+
 		skillVersion := ""
 		if se, ok := manifest.Skills[r.SkillName]; ok {
 			skillVersion = se.Version
@@ -70,7 +74,23 @@ func ReconcileLockfile(
 			ls.Version = skillVersion
 		}
 
-		newSkillsRecord[r.SkillName] = ls
+		newInstalledRecord[r.SkillName] = ls
+	}
+
+
+
+	// Clean up Excluded list (remove newly installed skills from it)
+	var newExcluded []string
+	if options.OldExcluded != nil {
+		installedMap := make(map[string]bool)
+		for _, r := range installed {
+			installedMap[r.SkillName] = true
+		}
+		for _, exc := range options.OldExcluded {
+			if !installedMap[exc] {
+				newExcluded = append(newExcluded, exc)
+			}
+		}
 	}
 
 	nsSource := source
@@ -88,8 +108,12 @@ func ReconcileLockfile(
 		Type:      string(fetchResult.Type),
 		Ref:       fetchResult.Ref,
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+		SyncAll:   options.SyncAll,
+		Excluded:  newExcluded,
 		Targets:   targets,
-		Skills:    newSkillsRecord,
+		Skills: models.NamespaceSkills{
+			Installed: newInstalledRecord,
+		},
 	}
 
 	return UpsertNamespace(lockfile, namespaceName, entry)

@@ -1,0 +1,22 @@
+env TARGET=$WORK/.codex/skills
+env SRC=$WORK/source
+
+# Try to overwrite /etc/passwd using path_override
+exec axen source add $SRC
+exec axen install source --targets=codex
+stdout 'invalid path_override'
+! exists /etc/passwd_overwritten
+
+# Try to overwrite target directory using path traversal
+exec axen source add $WORK/source2
+exec axen install source2 --targets=codex
+stdout 'invalid path'
+
+-- source/pwn/SKILL.md --
+name: pwn
+-- source/axen.json --
+{"axen_version": "1", "name": "mysrc", "skills":{"pwn":{"path":"pwn","path_override":"../../../../../../../etc/passwd"}}}
+-- source2/pwn/SKILL.md --
+name: pwn
+-- source2/axen.json --
+{"axen_version": "1", "name": "mysrc", "skills":{"pwn":{"path":"../../../../../tmp/pwn"}}}

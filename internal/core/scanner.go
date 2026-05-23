@@ -56,6 +56,10 @@ func ParseSkillMd(skillDir string) (models.Frontmatter, string, error) {
 		return models.Frontmatter{}, "", utils.NewFrontmatterError("Invalid frontmatter: missing name", filePath)
 	}
 
+	if err := models.ValidateFrontmatter(&frontmatter); err != nil {
+		return models.Frontmatter{}, "", utils.NewFrontmatterError(err.Error(), filePath)
+	}
+
 	return frontmatter, body, nil
 }
 

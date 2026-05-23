@@ -1,0 +1,5 @@
+# Try to execute a command through git URL arguments
+! exec axen source add "ext::sh -c touch $WORK/pwned"
+! exists $WORK/pwned
+
+! exec axen source add "git://-url"

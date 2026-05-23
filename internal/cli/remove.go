@@ -2,122 +2,151 @@ package cli
 
 import (
 	"axen/internal/core"
+	"axen/internal/ui"
 	"axen/internal/utils"
-	"strings"
+	"context"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
-var removeCmd = &cobra.Command{
-	Use:   "remove [namespace]",
-	Short: "Remove a repository or specific skills",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		namespaceName := args[0]
-		all, _ := cmd.Flags().GetBool("all")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		skillsStr, _ := cmd.Flags().GetString("skills")
+func NewCmdRemove(deps *Dependencies) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove [namespace]",
+		Short: "Remove a repository or specific skills",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			all, _ := cmd.Flags().GetBool("all")
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			exclude, _ := cmd.Flags().GetBool("exclude")
+			skillsStr, _ := cmd.Flags().GetStringSlice("skills")
 
-		if namespaceName == "." || namespaceName == ".." || strings.TrimSpace(namespaceName) == "" {
-			utils.Error("Invalid namespace name: %q", namespaceName)
-			return
-		}
-
-		if !all && skillsStr == "" {
-			utils.Error("Safety check: You must specify what to remove.\n  Use --all to uninstall the entire '%s' repository.\n  Use --skills=skill-a,skill-b to uninstall specific skills.", namespaceName)
-			return
-		}
-
-		if all && skillsStr != "" {
-			utils.Error("Cannot use both --all and --skills flags together.")
-			return
-		}
-
-		if dryRun {
-			pterm.Printf("\n%s %s\n\n", pterm.BgCyan.Sprint(pterm.Black(" DRY RUN ")), pterm.Gray("— no changes will be made"))
-		}
-
-		lockfile, err := core.ReadLockfile()
-		if err != nil {
-			utils.Fatal(err)
-			return
-		}
-
-		nsEntry, exists := lockfile.Namespaces[namespaceName]
-		if !exists {
-			utils.Error("Namespace %q not found in lockfile.", namespaceName)
-			return
-		}
-
-		var skillsToRemove []string
-		if all {
-			for s := range nsEntry.Skills {
-				skillsToRemove = append(skillsToRemove, s)
-			}
-		} else {
-			for _, s := range strings.Split(skillsStr, ",") {
-				skillsToRemove = append(skillsToRemove, strings.TrimSpace(s))
-			}
-		}
-
-		nsTargets := nsEntry.Targets
-		totalRemoved := 0
-		updatedLockfile := lockfile
-
-		for _, skillName := range skillsToRemove {
-			skillInfo, skillExists := nsEntry.Skills[skillName]
-			if !skillExists && !all {
-				utils.Warn("Skill %q is not installed in namespace %q.", skillName, namespaceName)
-				continue
+			namespaceName := ""
+			if len(args) > 0 {
+				namespaceName = args[0]
 			}
 
-			skillTargets := skillInfo.Targets
-			if len(skillTargets) == 0 {
-				skillTargets = nsTargets
-			}
+			return runRemove(cmd.Context(), deps, namespaceName, all, dryRun, exclude, skillsStr)
+		},
+	}
 
-			removedFrom, err := core.UninstallSkillFromTargets(skillName, skillTargets, dryRun)
-			if err != nil {
-				utils.Fatal(err)
-				return
-			}
+	cmd.Flags().BoolP("all", "a", false, "Remove the entire repository and all its skills")
+	cmd.Flags().BoolP("dry-run", "d", false, "Preview changes without executing")
+	cmd.Flags().BoolP("exclude", "e", false, "Automatically add removed skills to the exclude list (bypasses prompt)")
+	cmd.Flags().StringSliceP("skills", "s", nil, "Comma-separated list of specific skills to remove")
 
-			totalRemoved += len(removedFrom)
-
-			if !dryRun {
-				updatedLockfile = core.RemoveSkillFromLockfile(updatedLockfile, namespaceName, skillName)
-			}
-
-			if len(removedFrom) > 0 {
-				utils.Success("Removed %s from %s location(s):", pterm.Bold.Sprint(skillName), pterm.Bold.Sprintf("%d", len(removedFrom)))
-				for _, r := range removedFrom {
-					pterm.Printf("  %s %s %s\n", pterm.Green("✓"), pterm.Gray(r.Path), pterm.Cyan("("+r.Target+")"))
-				}
-			} else {
-				utils.Info("Skill %q had no active target folders.", skillName)
-			}
-		}
-
-		if !dryRun {
-			if updatedNs, ok := updatedLockfile.Namespaces[namespaceName]; ok && len(updatedNs.Skills) == 0 {
-				updatedLockfile = core.RemoveNamespace(updatedLockfile, namespaceName)
-				utils.Info("Namespace %q is now empty and has been removed from the lockfile.", namespaceName)
-			} else if !ok {
-				utils.Info("Namespace %q is now empty and has been removed from the lockfile.", namespaceName)
-			}
-			core.WriteLockfile(updatedLockfile)
-		}
-
-		if dryRun {
-			pterm.Println(pterm.Gray("\nNo changes made (dry run)."))
-		}
-	},
+	return cmd
 }
 
-func init() {
-	removeCmd.Flags().BoolP("all", "a", false, "Remove the entire repository and all its skills")
-	removeCmd.Flags().BoolP("dry-run", "d", false, "Preview changes without executing")
-	removeCmd.Flags().StringP("skills", "s", "", "Comma-separated list of specific skills to remove")
-	rootCmd.AddCommand(removeCmd)
+func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, all, dryRun, exclude bool, skillsFilter []string) error {
+	lockfile, err := core.ReadLockfile()
+	if err != nil {
+		return err
+	}
+
+	if dryRun {
+		ui.PrintDryRunBanner()
+	}
+
+	if namespaceName == "" {
+		ns, err := ui.PromptNamespaceSelection(deps.Prompter, lockfile, false)
+		if err != nil {
+			return err
+		}
+		namespaceName = ns
+	}
+
+	nsEntry, exists := lockfile.Namespaces[namespaceName]
+	if !exists {
+		return utils.NewAxenError("namespace not found", "INVALID_NAMESPACE")
+	}
+
+	var skillsToRemove []string
+	if !all && len(skillsFilter) == 0 {
+		var installed []string
+		for s := range nsEntry.Skills.Installed {
+			installed = append(installed, s)
+		}
+		isAll, selected, err := ui.PromptRemoveMode(deps.Prompter, namespaceName, installed)
+		if err != nil {
+			return err
+		}
+		if isAll {
+			all = true
+			skillsToRemove = installed
+		} else {
+			if len(selected) == 0 {
+				utils.Warn("No skills selected. Aborting.")
+				return nil
+			}
+			skillsToRemove = selected
+		}
+	} else if all {
+		for s := range nsEntry.Skills.Installed {
+			skillsToRemove = append(skillsToRemove, s)
+		}
+	} else {
+		skillsToRemove = skillsFilter
+	}
+
+	if nsEntry.SyncAll && !all && len(skillsToRemove) > 0 && !dryRun && !exclude {
+		excludeMode, err := ui.PromptSyncAllRemoval(deps.Prompter, namespaceName)
+		if err != nil {
+			return err
+		}
+		if excludeMode {
+			exclude = true
+		} else {
+			nsEntry.SyncAll = false
+		}
+	}
+
+	if exclude && !dryRun {
+		for _, s := range skillsToRemove {
+			core.ExcludeSkillFromNamespace(lockfile, namespaceName, s)
+		}
+		nsEntry = lockfile.Namespaces[namespaceName]
+	}
+
+	for _, skillName := range skillsToRemove {
+		skillInfo, ok := nsEntry.Skills.Installed[skillName]
+		if !ok {
+			continue
+		}
+		targetsToRemove := skillInfo.Targets
+		if len(targetsToRemove) == 0 {
+			targetsToRemove = nsEntry.Targets
+		}
+		removedFrom, err := core.UninstallSkillFromTargets(skillName, targetsToRemove, dryRun)
+		if err != nil {
+			return err
+		}
+		ui.PrintRemoveResults(skillName, removedFrom)
+
+		if !dryRun {
+			lockfile = core.RemoveSkillFromLockfile(lockfile, namespaceName, skillName)
+		}
+	}
+
+	if !dryRun {
+		_ = core.WriteLockfile(lockfile)
+		
+		if ns, ok := lockfile.Namespaces[namespaceName]; ok && len(ns.Skills.Installed) == 0 {
+			removeSource, err := ui.PromptSourceRemoval(deps.Prompter, namespaceName)
+			if err != nil {
+				return err
+			}
+			if removeSource {
+				lockfile = core.RemoveNamespace(lockfile, namespaceName)
+				_ = core.WriteLockfile(lockfile)
+				
+				cache, _ := core.ReadSourcesIndex()
+				delete(cache.Namespaces, namespaceName)
+				_ = core.WriteSourcesIndex(cache)
+				
+				utils.Success("Removed source repository %s", namespaceName)
+			}
+		}
+	}
+
+	return nil
 }

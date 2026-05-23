@@ -1,0 +1,9 @@
+# Create local skill
+exec axen create local-skill --dir .
+exists local-skill
+exists local-skill/SKILL.md
+
+# Init namespace
+exec axen init .
+exists axen.json
+grep 'local-skill' axen.json

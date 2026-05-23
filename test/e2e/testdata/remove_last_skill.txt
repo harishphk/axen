@@ -1,0 +1,29 @@
+env TARGET=$WORK/.codex/skills
+env SRC=$WORK/source
+
+# Install both skills
+exec axen source add $SRC
+exec axen install source --targets=codex --skills=skill_a,skill_b
+exists $TARGET/skill_a/SKILL.md
+exists $TARGET/skill_b/SKILL.md
+
+# Remove skill_a
+exec axen remove source --skills=skill_a
+! exists $TARGET/skill_a/SKILL.md
+
+# Check lockfile namespace still exists because skill_b is there
+grep '"source"' .axen/axen-lock.json
+
+# Remove skill_b
+exec axen remove source --skills=skill_b
+! exists $TARGET/skill_b/SKILL.md
+
+# Check lockfile namespace is removed because of new prompt logic
+! grep '"source"' .axen/axen-lock.json
+
+-- source/skill_a/SKILL.md --
+name: skill_a
+-- source/skill_b/SKILL.md --
+name: skill_b
+-- source/axen.json --
+{"axen_version":"1","name":"mysrc","skills":{"skill_a":{"path":"skill_a"},"skill_b":{"path":"skill_b"}}}

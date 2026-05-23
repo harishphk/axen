@@ -8,6 +8,9 @@ import (
 )
 
 func GetHomeDir() string {
+	if testHome := os.Getenv("AXEN_TEST_HOME"); testHome != "" {
+		return testHome
+	}
 	home, _ := os.UserHomeDir()
 	return home
 }
@@ -35,10 +38,6 @@ func GetSourcesDir() string {
 	return filepath.Join(GetAxenDir(), "sources")
 }
 
-func GetCacheDir() string {
-	return filepath.Join(GetAxenDir(), "cache")
-}
-
 func GetStagingDir() string {
 	return filepath.Join(GetAxenDir(), "staging")
 }
@@ -54,20 +53,22 @@ func DeriveNamespace(source string) string {
 		
 		re := regexp.MustCompile(`[/\\]`)
 		segments := re.Split(cleaned, -1)
-		if len(segments) == 0 {
-			return "unknown"
-		}
 		last := segments[len(segments)-1]
 		
 		if strings.Contains(last, ":") {
 			parts := strings.Split(last, ":")
-			if len(parts) > 0 {
-				return parts[len(parts)-1]
-			}
-			return "unknown"
+			last = parts[len(parts)-1]
 		}
-		if last == "" {
-			return "unknown"
+		
+		if len(segments) >= 2 {
+			secondLast := segments[len(segments)-2]
+			if strings.Contains(secondLast, ":") {
+				parts := strings.Split(secondLast, ":")
+				secondLast = parts[len(parts)-1]
+			}
+			if !strings.Contains(secondLast, ".") && secondLast != "" && secondLast != "http:" && secondLast != "https:" {
+				return secondLast + "__" + last
+			}
 		}
 		return last
 	}

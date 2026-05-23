@@ -1,21 +1,26 @@
 package cli
 
 import (
-	"axen/internal/utils"
-	"os"
-
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:           "axen",
-	Short:         "Axen - A minimal skill manager for AI agents",
-	SilenceUsage:  true,
-	SilenceErrors: true,
-}
+func NewRootCmd(deps *Dependencies) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           "axen",
+		Short:         "Axen - A minimal skill manager for AI agents",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			if verbose {
+				pterm.EnableDebugMessages()
+			}
+		},
+	}
 
-func init() {
+	cmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose/debug logging")
+
 	cobra.AddTemplateFunc("StyleHeading", pterm.Cyan)
 	cobra.AddTemplateFunc("StyleCommand", pterm.Green)
 
@@ -43,17 +48,17 @@ func init() {
 
 Use "{{StyleCommand .CommandPath}} [command] --help" for more information about a command.{{end}}
 `
-	rootCmd.SetUsageTemplate(usageTmpl)
-}
+	cmd.SetUsageTemplate(usageTmpl)
 
-func Execute() {
-	pterm.EnableColor()
-	if err := rootCmd.Execute(); err != nil {
-		if axErr, ok := err.(*utils.AxenError); ok {
-			utils.Fatal(axErr)
-		} else {
-			pterm.Error.Println(err.Error())
-		}
-		os.Exit(1)
-	}
+	// Add subcommands
+	cmd.AddCommand(NewCmdInstall(deps))
+	cmd.AddCommand(NewCmdRemove(deps))
+	cmd.AddCommand(NewCmdUpdate(deps))
+	cmd.AddCommand(NewCmdSource(deps))
+	cmd.AddCommand(NewCmdList(deps))
+	cmd.AddCommand(NewCmdDoctor(deps))
+	cmd.AddCommand(NewCmdCreate(deps))
+	cmd.AddCommand(NewCmdInit(deps))
+
+	return cmd
 }

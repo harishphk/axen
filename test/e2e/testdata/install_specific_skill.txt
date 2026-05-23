@@ -1,0 +1,17 @@
+env TARGET=$WORK/.codex/skills
+env SRC=$WORK/source
+
+# Install only skill_a
+exec axen source add $SRC
+exec axen install source --targets=codex --skills=skill_a
+
+# Check that only skill_a was installed
+exists $TARGET/skill_a/SKILL.md
+! exists $TARGET/skill_b/SKILL.md
+
+-- source/skill_a/SKILL.md --
+name: skill_a
+-- source/skill_b/SKILL.md --
+name: skill_b
+-- source/axen.json --
+{"axen_version": "1", "name": "mysrc", "skills":{"skill_a":{"path":"skill_a"},"skill_b":{"path":"skill_b"}}}

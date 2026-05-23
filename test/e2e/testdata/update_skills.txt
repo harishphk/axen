@@ -1,0 +1,21 @@
+env TARGET=$WORK/.codex/skills
+env SRC=$WORK/source
+
+# Install skill_a
+exec axen source add $SRC
+exec axen install source --all --targets=codex
+exists $TARGET/skill_a/SKILL.md
+
+# Modify skill_a in source to skill_a_v2 by copying from updated_source
+exec cp updated_source/skill_a/SKILL.md source/skill_a/SKILL.md
+
+# Update
+exec axen update source
+exec grep 'skill_a_v2' $TARGET/skill_a/SKILL.md
+
+-- source/skill_a/SKILL.md --
+name: skill_a
+-- source/axen.json --
+{"axen_version": "1", "name": "mysrc", "skills":{"skill_a":{"path":"skill_a"}}}
+-- updated_source/skill_a/SKILL.md --
+name: skill_a_v2

@@ -2,6 +2,7 @@ package sources
 
 import (
 	"axen/internal/utils"
+	"context"
 	"strings"
 )
 
@@ -9,8 +10,9 @@ type SourceType string
 
 const (
 	SourceTypeGit   SourceType = "git"
-	SourceTypeLocal SourceType = "local"
-	SourceTypeHttp  SourceType = "http"
+	SourceTypeLocal       SourceType = "local"
+	SourceTypeHttp        SourceType = "http"
+	SourceTypeUnsupported SourceType = "unsupported"
 )
 
 type FetchResult struct {
@@ -20,18 +22,21 @@ type FetchResult struct {
 }
 
 func DetectSourceType(source string) SourceType {
-	if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "git@") || strings.HasSuffix(source, ".git") {
+	if strings.HasPrefix(source, "ext::") {
+		return SourceTypeUnsupported
+	}
+	if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "git://") || strings.HasPrefix(source, "git@") || strings.HasSuffix(source, ".git") {
 		return SourceTypeGit
 	}
 	return SourceTypeLocal
 }
 
-func FetchSource(source string, namespaceName string) (*FetchResult, error) {
+func FetchSource(ctx context.Context, source string, namespaceName string) (*FetchResult, error) {
 	srcType := DetectSourceType(source)
 
 	switch srcType {
 	case SourceTypeGit:
-		localPath, ref, err := FetchGit(source, namespaceName)
+		localPath, ref, err := FetchGit(ctx, source, namespaceName)
 		if err != nil {
 			return nil, err
 		}
@@ -44,6 +49,8 @@ func FetchSource(source string, namespaceName string) (*FetchResult, error) {
 		return &FetchResult{LocalPath: localPath, Ref: ref, Type: SourceTypeLocal}, nil
 	case SourceTypeHttp:
 		return nil, utils.NewSourceError("HTTP/ZIP sources are not yet supported (coming in v1.1)", source)
+	case SourceTypeUnsupported:
+		return nil, utils.NewSourceError("Unsupported source format", source)
 	default:
 		return nil, utils.NewSourceError("Unknown source type", source)
 	}
