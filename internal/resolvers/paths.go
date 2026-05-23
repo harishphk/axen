@@ -15,6 +15,8 @@ func GetHomeDir() string {
 	return home
 }
 
+var pathSeparatorRegex = regexp.MustCompile(`[/\\]`)
+
 func ExpandTilde(p string) string {
 	if strings.HasPrefix(p, "~/") || p == "~" {
 		return filepath.Join(GetHomeDir(), p[1:])
@@ -51,8 +53,7 @@ func DeriveNamespace(source string) string {
 		cleaned := strings.TrimSuffix(source, ".git")
 		cleaned = strings.TrimRight(cleaned, "/\\")
 		
-		re := regexp.MustCompile(`[/\\]`)
-		segments := re.Split(cleaned, -1)
+		segments := pathSeparatorRegex.Split(cleaned, -1)
 		last := segments[len(segments)-1]
 		
 		if strings.Contains(last, ":") {

@@ -100,10 +100,24 @@ func WriteJson(filePath string, data any) error {
 		return err
 	}
 	bytes = append(bytes, '\n')
-	tmpPath := filePath + ".tmp"
-	if err := os.WriteFile(tmpPath, bytes, 0644); err != nil {
+	
+	tmpFile, err := os.CreateTemp(filepath.Dir(filePath), filepath.Base(filePath)+".*.tmp")
+	if err != nil {
+		return NewFileSystemError("Failed to create JSON temp file", filePath)
+	}
+	tmpPath := tmpFile.Name()
+	
+	if _, err := tmpFile.Write(bytes); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
 		return NewFileSystemError("Failed to write JSON temp file", tmpPath)
 	}
+	
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return NewFileSystemError("Failed to close JSON temp file", tmpPath)
+	}
+
 	if err := os.Rename(tmpPath, filePath); err != nil {
 		_ = os.Remove(tmpPath)
 		return NewFileSystemError("Failed to atomically rename JSON file", filePath)

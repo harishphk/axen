@@ -38,6 +38,11 @@ description: "<TODO: Describe what this skill does and when to use it>"
 `, name, title)
 }
 
+var (
+	createNameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
+	templateNameRegex = regexp.MustCompile(`(?m)^name:\s*.+$`)
+)
+
 func NewCmdCreate(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name]",
@@ -56,8 +61,7 @@ func NewCmdCreate(deps *Dependencies) *cobra.Command {
 				return err
 			}
 
-			nameRegex := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
-			if !nameRegex.MatchString(name) || len(name) > 64 {
+			if !createNameRegex.MatchString(name) || len(name) > 64 {
 				return fmt.Errorf("invalid skill name %q. Must be lowercase kebab-case, 1-64 characters", name)
 			}
 
@@ -84,8 +88,7 @@ func NewCmdCreate(deps *Dependencies) *cobra.Command {
 				if utils.PathExists(skillMdPath) {
 					content, err := os.ReadFile(skillMdPath)
 					if err == nil {
-						re := regexp.MustCompile(`(?m)^name:\s*.+$`)
-						updated := re.ReplaceAllString(string(content), "name: "+name)
+						updated := templateNameRegex.ReplaceAllString(string(content), "name: "+name)
 						_ = os.WriteFile(skillMdPath, []byte(updated), 0644)
 					}
 				}
@@ -105,13 +108,13 @@ func NewCmdCreate(deps *Dependencies) *cobra.Command {
 			pterm.Println("  " + pterm.Gray("├──") + " references/")
 			pterm.Println("  " + pterm.Gray("└──") + " assets/")
 			pterm.Printf("\nNext: Edit %s to add your instructions.\n", pterm.Cyan(name+"/SKILL.md"))
-			
+
 			return nil
 		},
 	}
-	
+
 	cmd.Flags().StringP("template", "t", "", "Path to a custom template directory")
 	cmd.Flags().StringP("dir", "d", "", "Parent directory to create in (default: current)")
-	
+
 	return cmd
 }

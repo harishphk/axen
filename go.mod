@@ -1,6 +1,6 @@
 module axen
 
-go 1.26.3
+go 1.26.0
 
 require (
 	atomicgo.dev/keyboard v0.2.10

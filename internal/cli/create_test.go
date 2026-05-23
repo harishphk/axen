@@ -79,13 +79,13 @@ func TestCreateCmd(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); os.IsNotExist(err) {
 			t.Fatalf("expected SKILL.md to be created from template")
 		}
-		
+
 		content, _ := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
 		if string(content) != "---\nname: from-template\n---\n" {
 			t.Fatalf("expected template name to be replaced, got %s", string(content))
 		}
 	})
-	
+
 	t.Run("Invalid template", func(t *testing.T) {
 		testDir := t.TempDir()
 		rootCmd := NewRootCmd(NewDependencies())

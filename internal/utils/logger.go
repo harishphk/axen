@@ -38,3 +38,12 @@ func Fatal(err error) {
 		pterm.Error.Println(err.Error())
 	}
 }
+
+var StartSpinner = func(text string) (*pterm.SpinnerPrinter, error) {
+	return pterm.DefaultSpinner.Start(text)
+}
+
+func init() {
+	// Override the default blocky spinner with a modern dots spinner
+	pterm.DefaultSpinner.Sequence = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+}

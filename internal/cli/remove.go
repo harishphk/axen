@@ -6,6 +6,7 @@ import (
 	"axen/internal/utils"
 	"context"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,14 @@ func NewCmdRemove(deps *Dependencies) *cobra.Command {
 				namespaceName = args[0]
 			}
 
-			return runRemove(cmd.Context(), deps, namespaceName, all, dryRun, exclude, skillsStr)
+			opts := RunRemoveOptions{
+				All:          all,
+				DryRun:       dryRun,
+				Exclude:      exclude,
+				SkillsFilter: skillsStr,
+			}
+
+			return runRemove(cmd.Context(), deps, namespaceName, opts)
 		},
 	}
 
@@ -37,13 +45,21 @@ func NewCmdRemove(deps *Dependencies) *cobra.Command {
 	return cmd
 }
 
-func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, all, dryRun, exclude bool, skillsFilter []string) error {
+type RunRemoveOptions struct {
+	All            bool
+	DryRun         bool
+	Exclude        bool
+	SkillsFilter   []string
+	IsSourceRemove bool
+}
+
+func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, opts RunRemoveOptions) error {
 	lockfile, err := core.ReadLockfile()
 	if err != nil {
 		return err
 	}
 
-	if dryRun {
+	if opts.DryRun {
 		ui.PrintDryRunBanner()
 	}
 
@@ -60,8 +76,19 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, al
 		return utils.NewAxenError("namespace not found", "INVALID_NAMESPACE")
 	}
 
+	if opts.IsSourceRemove && !opts.DryRun {
+		confirm, err := deps.Prompter.InteractiveConfirm("Are you sure you want to completely remove the source repository '"+namespaceName+"' and uninstall all its skills?", *pterm.DefaultInteractiveConfirm.WithDefaultValue(true))
+		if err != nil {
+			return err
+		}
+		if !confirm {
+			utils.Warn("Source removal aborted.")
+			return nil
+		}
+	}
+
 	var skillsToRemove []string
-	if !all && len(skillsFilter) == 0 {
+	if !opts.All && len(opts.SkillsFilter) == 0 {
 		var installed []string
 		for s := range nsEntry.Skills.Installed {
 			installed = append(installed, s)
@@ -71,7 +98,7 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, al
 			return err
 		}
 		if isAll {
-			all = true
+			opts.All = true
 			skillsToRemove = installed
 		} else {
 			if len(selected) == 0 {
@@ -80,27 +107,27 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, al
 			}
 			skillsToRemove = selected
 		}
-	} else if all {
+	} else if opts.All {
 		for s := range nsEntry.Skills.Installed {
 			skillsToRemove = append(skillsToRemove, s)
 		}
 	} else {
-		skillsToRemove = skillsFilter
+		skillsToRemove = opts.SkillsFilter
 	}
 
-	if nsEntry.SyncAll && !all && len(skillsToRemove) > 0 && !dryRun && !exclude {
+	if nsEntry.SyncAll && !opts.All && len(skillsToRemove) > 0 && !opts.DryRun && !opts.Exclude {
 		excludeMode, err := ui.PromptSyncAllRemoval(deps.Prompter, namespaceName)
 		if err != nil {
 			return err
 		}
 		if excludeMode {
-			exclude = true
+			opts.Exclude = true
 		} else {
 			nsEntry.SyncAll = false
 		}
 	}
 
-	if exclude && !dryRun {
+	if opts.Exclude && !opts.DryRun {
 		for _, s := range skillsToRemove {
 			core.ExcludeSkillFromNamespace(lockfile, namespaceName, s)
 		}
@@ -116,33 +143,37 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, al
 		if len(targetsToRemove) == 0 {
 			targetsToRemove = nsEntry.Targets
 		}
-		removedFrom, err := core.UninstallSkillFromTargets(skillName, targetsToRemove, dryRun)
+		removedFrom, err := core.UninstallSkillFromTargets(skillName, targetsToRemove, opts.DryRun)
 		if err != nil {
 			return err
 		}
 		ui.PrintRemoveResults(skillName, removedFrom)
 
-		if !dryRun {
+		if !opts.DryRun {
 			lockfile = core.RemoveSkillFromLockfile(lockfile, namespaceName, skillName)
 		}
 	}
 
-	if !dryRun {
+	if !opts.DryRun {
 		_ = core.WriteLockfile(lockfile)
-		
+
 		if ns, ok := lockfile.Namespaces[namespaceName]; ok && len(ns.Skills.Installed) == 0 {
-			removeSource, err := ui.PromptSourceRemoval(deps.Prompter, namespaceName)
-			if err != nil {
-				return err
+			removeSource := true
+			if !opts.IsSourceRemove {
+				var err error
+				removeSource, err = ui.PromptSourceRemoval(deps.Prompter, namespaceName)
+				if err != nil {
+					return err
+				}
 			}
 			if removeSource {
 				lockfile = core.RemoveNamespace(lockfile, namespaceName)
 				_ = core.WriteLockfile(lockfile)
-				
+
 				cache, _ := core.ReadSourcesIndex()
 				delete(cache.Namespaces, namespaceName)
 				_ = core.WriteSourcesIndex(cache)
-				
+
 				utils.Success("Removed source repository %s", namespaceName)
 			}
 		}

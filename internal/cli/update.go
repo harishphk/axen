@@ -3,6 +3,7 @@ package cli
 import (
 	"axen/internal/core"
 	"axen/internal/ui"
+	"axen/internal/utils"
 	"context"
 	"fmt"
 
@@ -61,7 +62,7 @@ func runUpdate(ctx context.Context, deps *Dependencies, targetNs string, dryRun 
 	failedCount := 0
 
 	for _, nsName := range toUpdate {
-		spinner, _ := pterm.DefaultSpinner.Start("Updating " + nsName + "...")
+		spinner, _ := utils.StartSpinner("Updating " + nsName + "...")
 		nsEntry := lockfile.Namespaces[nsName]
 
 		fetchResult, manifest, err := core.FetchAndResolve(ctx, nsEntry.Source, nsName)
@@ -122,7 +123,7 @@ func runUpdate(ctx context.Context, deps *Dependencies, targetNs string, dryRun 
 	}
 
 	ui.PrintUpdateSummary(totalUpdated, totalUnchanged, dryRun)
-	
+
 	if failedCount > 0 {
 		return fmt.Errorf("%d namespace(s) failed to update", failedCount)
 	}

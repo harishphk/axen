@@ -184,9 +184,7 @@ func PromptSourceRemoval(p Prompter, namespaceName string) (bool, error) {
 	pterm.Println()
 	pterm.Warning.Printfln("This was the last skill installed from '%s'.", namespaceName)
 
-	result, err := p.InteractiveConfirm("Do you want to completely remove this source repository?", pterm.InteractiveConfirmPrinter{
-		DefaultValue: true,
-	})
+	result, err := p.InteractiveConfirm("Do you want to completely remove this source repository?", *pterm.DefaultInteractiveConfirm.WithDefaultValue(true))
 	
 	return result, err
 }

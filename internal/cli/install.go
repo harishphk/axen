@@ -8,7 +8,6 @@ import (
 	"axen/internal/utils"
 	"context"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -91,7 +90,7 @@ func runInstall(ctx context.Context, deps *Dependencies, namespaceName string, o
 		sourceURL = nsEntry.Source
 	}
 
-	spinner, _ := pterm.DefaultSpinner.Start("Fetching " + namespaceName + "...")
+	spinner, _ := utils.StartSpinner("Fetching " + namespaceName + "...")
 	fetchResult, manifest, err := core.FetchAndResolve(ctx, sourceURL, namespaceName)
 	if err != nil {
 		spinner.Fail(err.Error())

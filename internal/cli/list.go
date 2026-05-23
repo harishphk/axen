@@ -44,7 +44,7 @@ func NewCmdList(deps *Dependencies) *cobra.Command {
 				}
 
 				pterm.Printf("\n%s %s\n", pterm.LightCyan(name), pterm.Gray(sourceLabel))
-				
+
 				ref := entry.Ref
 				if len(ref) > 8 {
 					ref = ref[:8]

@@ -44,9 +44,17 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 	removeCmd := &cobra.Command{
 		Use:   "remove [namespace]",
 		Short: "Remove a source repository and all its skills",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(cmd.Context(), deps, args[0], true, false, false, nil)
+			ns := ""
+			if len(args) > 0 {
+				ns = args[0]
+			}
+			opts := RunRemoveOptions{
+				All:            true,
+				IsSourceRemove: true,
+			}
+			return runRemove(cmd.Context(), deps, ns, opts)
 		},
 	}
 
@@ -89,7 +97,7 @@ func runSourceAdd(ctx context.Context, deps *Dependencies, source string, instal
 		namespaceName = resolvers.DeriveNamespace(source)
 	}
 
-	spinner, _ := pterm.DefaultSpinner.Start("Fetching " + source + "...")
+	spinner, _ := utils.StartSpinner("Fetching " + source + "...")
 	fetchResult, manifest, err := core.FetchAndResolve(ctx, source, namespaceName)
 	if err != nil {
 		spinner.Fail(err.Error())
@@ -122,9 +130,7 @@ func runSourceAdd(ctx context.Context, deps *Dependencies, source string, instal
 
 	utils.Success("Successfully added source %s!", pterm.Cyan(namespaceName))
 
-	if installFlag {
-		opts := RunInstallOptions{AllSkills: true}
-		return runInstall(ctx, deps, namespaceName, opts)
-	}
-	return nil
+	// Chain into the interactive installer, passing installFlag as AllSkills (bypassing interactive skill selection if true)
+	opts := RunInstallOptions{AllSkills: installFlag}
+	return runInstall(ctx, deps, namespaceName, opts)
 }

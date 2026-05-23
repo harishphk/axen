@@ -3,6 +3,7 @@ package cli
 import (
 	"axen/internal/core"
 	"axen/internal/ui"
+	"axen/internal/utils"
 	"path/filepath"
 
 	"github.com/pterm/pterm"
@@ -22,7 +23,7 @@ func NewCmdInit(deps *Dependencies) *cobra.Command {
 				return err
 			}
 
-			spinner, _ := pterm.DefaultSpinner.Start("Scanning for skills in " + dir + "...")
+			spinner, _ := utils.StartSpinner("Scanning for skills in " + dir + "...")
 			scanned, err := core.ScanSkills(dir)
 			if err != nil {
 				spinner.Fail("Failed to scan skills: " + err.Error())
@@ -65,9 +66,9 @@ func NewCmdInit(deps *Dependencies) *cobra.Command {
 			return nil
 		},
 	}
-	
+
 	cmd.Flags().StringP("name", "n", "", "Namespace name for the manifest")
 	cmd.Flags().StringP("dir", "d", ".", "Directory to scan (default: current)")
-	
+
 	return cmd
 }

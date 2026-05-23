@@ -15,7 +15,7 @@ func FetchGit(ctx context.Context, url string, namespaceName string) (string, st
 		return "", "", err
 	}
 
-	if strings.HasPrefix(url, "-") || strings.HasPrefix(url, "git://-") {
+	if strings.HasPrefix(url, "-") || strings.HasPrefix(url, "git://-") || strings.HasPrefix(url, "ext::") {
 		return "", "", utils.NewSourceError("Invalid or unsafe Git URL provided", url)
 	}
 
