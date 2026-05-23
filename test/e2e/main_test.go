@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
+	"github.com/pterm/pterm"
 )
 
 func TestMain(m *testing.M) {
@@ -17,6 +19,9 @@ func TestMain(m *testing.M) {
 }
 
 func axenMain() int {
+	// Freeze the pterm spinner animation to prevent data races during parallel e2e tests
+	pterm.DefaultSpinner.Delay = time.Hour
+	
 	deps := cli.NewDependencies()
 	rootCmd := cli.NewRootCmd(deps)
 	

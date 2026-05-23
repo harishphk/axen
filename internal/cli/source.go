@@ -79,7 +79,7 @@ func runSourceList() error {
 		})
 	}
 
-	pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
+	_ = pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
 	return nil
 }
 

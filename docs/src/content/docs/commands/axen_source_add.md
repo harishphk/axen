@@ -14,8 +14,9 @@ axen source add [url|path] [flags]
 ### Options
 
 ```
-  -h, --help      help for add
-  -i, --install   Install all skills immediately after adding the source
+  -h, --help          help for add
+  -i, --install       Install all skills immediately after adding the source
+  -n, --name string   Override the auto-derived namespace name
 ```
 
 ### Options inherited from parent commands

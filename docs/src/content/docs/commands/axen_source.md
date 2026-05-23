@@ -23,4 +23,6 @@ Manage skill repositories (sources)
 
 * [axen](axen.md)	 - Axen - A minimal skill manager for AI agents
 * [axen source add](axen_source_add.md)	 - Add a skill repository to your local registry
+* [axen source list](axen_source_list.md)	 - List all registered skill sources
+* [axen source remove](axen_source_remove.md)	 - Remove a source repository and all its skills
 

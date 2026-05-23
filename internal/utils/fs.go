@@ -105,7 +105,7 @@ func WriteJson(filePath string, data any) error {
 		return NewFileSystemError("Failed to write JSON temp file", tmpPath)
 	}
 	if err := os.Rename(tmpPath, filePath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return NewFileSystemError("Failed to atomically rename JSON file", filePath)
 	}
 	return nil
