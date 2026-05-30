@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	atomicgo.dev/keyboard v0.2.10
 	github.com/pterm/pterm v0.12.83
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
 )
