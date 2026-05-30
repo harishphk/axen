@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   build:
@@ -17,48 +15,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      
+
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
-      
+          go-version-file: "go.mod"
+
       - name: Generate CLI Docs
         run: |
           go mod tidy
           go run cmd/docs/main.go
-      
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-      
+          node-version: 24
+
       - name: Install dependencies
         run: npm ci
         working-directory: ./docs
-        
+
       - name: Build with Astro
         run: npm run build
         working-directory: ./docs
-      
-      - name: Upload artifact
-        if: github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./docs/dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy
-    if: github.event_name == 'push'
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5

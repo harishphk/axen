@@ -2,11 +2,11 @@
 
 > The Universal, Configuration-Driven Package Manager for AI Agent Skills.
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/axen/axen)](https://goreportcard.com/report/github.com/axen/axen)
-[![Documentation](https://img.shields.io/badge/docs-axen.dev-blueviolet)](https://axen.dev)
+[![Go Report Card](https://goreportcard.com/badge/github.com/harishphk/axen)](https://goreportcard.com/report/github.com/harishphk/axen)
+[![Documentation](https://img.shields.io/badge/docs-axen.dev-blueviolet)](https://axen.domains.workers.dev/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](/LICENSE)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/axen/axen/ci.yml?branch=main)](https://github.com/axen/axen/actions)
-[![Latest Release](https://img.shields.io/github/v/release/axen/axen)](https://github.com/axen/axen/releases)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/harishphk/axen/ci.yml?branch=main)](https://github.com/harishphk/axen/actions)
+[![Latest Release](https://img.shields.io/github/v/release/harishphk/axen)](https://github.com/harishphk/axen/releases)
 
 ---
 
@@ -64,7 +64,7 @@ Axen natively maps paths for 60+ AI tools across Unix/macOS and Windows, sorted 
 *   **OpenHands** (`.openhands/skills/`)
 *   **Block Goose** (`.config/goose/skills/`)
 
-👉 *For the complete list of all 60+ targets and their exact system paths, see the [Supported AI Tools Documentation](https://axen.dev/reference/supported-tools).*
+👉 *For the complete list of all 60+ targets and their exact system paths, see the [Supported AI Tools Documentation](https://axen.domains.workers.dev/reference/supported-tools).*
 
 ---
 
@@ -73,21 +73,21 @@ Axen natively maps paths for 60+ AI tools across Unix/macOS and Windows, sorted 
 ### macOS & Linux
 Install Axen globally using our quick-installation script:
 ```bash
-curl -fsSL https://axen.dev/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 ```powershell
-irm https://axen.dev/install.ps1 | iex
+irm https://raw.githubusercontent.com/harishphk/axen/main/install.ps1 | iex
 ```
 
 ### Pre-Built Binaries
-You can also download the pre-compiled binary for your operating system and architecture directly from our [GitHub Releases](https://github.com/axen/axen/releases) page and place it inside your system path.
+You can also download the pre-compiled binary for your operating system and architecture directly from our [GitHub Releases](https://github.com/harishphk/axen/releases) page and place it inside your system path.
 
 ### Installing from Source (Go 1.22+ required)
 If you prefer to compile the tool yourself from source:
 ```bash
-go install github.com/axen/axen/cmd/axen@latest
+go install github.com/harishphk/axen/cmd/axen@latest
 ```
 
 ---
@@ -146,16 +146,28 @@ The manifest file defines the skills available in a source registry:
 ```
 
 ### Lockfile (`axen-lock.json`)
-Axen writes a lockfile to track installation targets, hashes, and source versions, facilitating clean updates and prunes:
+Axen writes a lockfile to track installation targets and source namespaces, facilitating clean updates and prunes:
 ```json
 {
-  "version": 1,
-  "skills": {
-    "deploy-to-vercel": {
+  "axen_version": "1",
+  "namespaces": {
+    "agent-skills": {
       "source": "https://github.com/example/agent-skills.git",
-      "sourceType": "git",
-      "skillPath": "skills/deploy-to-vercel/SKILL.md",
-      "computedHash": "03e0eaaa9bf13ba1e7ffa387f5893de6f324c0868c"
+      "type": "git",
+      "ref": "main",
+      "updated_at": "2026-05-30T12:00:00Z",
+      "sync_all": true,
+      "skills": {
+        "installed": {
+          "deploy-to-vercel": {
+            "version": "1.0.0",
+            "targets": [
+              "cursor",
+              "windsurf"
+            ]
+          }
+        }
+      }
     }
   }
 }
@@ -164,9 +176,9 @@ Axen writes a lockfile to track installation targets, hashes, and source version
 ---
 
 ## 📖 Learn More
-*   [Full Documentation Site](https://axen.dev)
-*   [Core Concepts Guide](https://axen.dev/guides/core-concepts)
-*   [Configuration Schema Reference](https://axen.dev/guides/configuration)
+*   [Full Documentation Site](https://axen.domains.workers.dev/)
+*   [Core Concepts Guide](https://axen.domains.workers.dev/guides/core-concepts)
+*   [Configuration Schema Reference](https://axen.domains.workers.dev/guides/configuration)
 
 ---
 
