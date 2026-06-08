@@ -1,9 +1,9 @@
 package core
 
 import (
-	"axen/internal/models"
-	"axen/internal/resolvers"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/utils"
 )
 
 func ReadConfig() (*models.Config, error) {

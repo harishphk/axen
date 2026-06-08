@@ -1,8 +1,8 @@
 package core
 
 import (
-	"axen/internal/models"
-	"axen/internal/sources"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/sources"
 	"context"
 	"sort"
 	"strings"

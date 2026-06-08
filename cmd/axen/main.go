@@ -1,7 +1,7 @@
 package main
 
 import (
-	"axen/internal/cli"
+	"github.com/harishphk/axen/internal/cli"
 	"os"
 
 	"github.com/pterm/pterm"

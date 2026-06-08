@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/utils"
 
 	"github.com/pterm/pterm"
 )

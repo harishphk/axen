@@ -7,15 +7,28 @@ description: How to install Axen on your machine.
 
 - **Go 1.22+** (if compiling from source or using `go install`)
 
-## Using `go install` (Recommended)
+## Quick Installation
 
-The easiest way to install Axen is via Go:
+### macOS & Linux
+Install Axen globally using our quick-installation script:
+```bash
+curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
+```
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/harishphk/axen/main/install.ps1 | iex
+```
+
+## Installing from Source (Go 1.26+ required)
+
+If you prefer to compile from source or use Go:
 
 ```bash
 go install github.com/harishphk/axen/cmd/axen@latest
 ```
 
-Ensure your `$(go env GOPATH)/bin` directory is in your system's `$PATH`.
+Ensure your Go bin directory is in your system's `$PATH`.
 
 ## Verifying Installation
 

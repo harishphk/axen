@@ -1,12 +1,12 @@
 package e2e_test
 
 import (
-	"axen/internal/cli"
+	"github.com/harishphk/axen/internal/cli"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/utils"
 	"github.com/pterm/pterm"
 	"github.com/rogpeppe/go-internal/testscript"
 )

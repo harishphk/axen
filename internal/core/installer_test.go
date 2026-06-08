@@ -1,9 +1,9 @@
 package core
 
 import (
-	"axen/internal/models"
-	"axen/internal/resolvers"
-	"axen/internal/sources"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/sources"
 	"context"
 	"os"
 	"path/filepath"

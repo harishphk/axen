@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"axen/internal/core"
-	"axen/internal/resolvers"
-	"axen/internal/ui"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/ui"
+	"github.com/harishphk/axen/internal/utils"
 	"context"
 
 	"github.com/spf13/cobra"

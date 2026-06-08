@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/utils"
 	"fmt"
 	"os"
 	"path/filepath"

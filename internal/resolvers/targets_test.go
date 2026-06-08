@@ -1,7 +1,7 @@
 package resolvers
 
 import (
-	"axen/internal/models"
+	"github.com/harishphk/axen/internal/models"
 	"encoding/json"
 	"os"
 	"path/filepath"

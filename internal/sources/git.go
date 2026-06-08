@@ -1,8 +1,8 @@
 package sources
 
 import (
-	"axen/internal/resolvers"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/utils"
 	"context"
 	"os/exec"
 	"path/filepath"

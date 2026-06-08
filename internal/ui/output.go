@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"axen/internal/core"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/utils"
 	"sort"
 	"strings"
 

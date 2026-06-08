@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"axen/internal/resolvers"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/utils"
 	"fmt"
 )
 

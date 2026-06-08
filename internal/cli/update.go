@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"axen/internal/core"
-	"axen/internal/ui"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/ui"
+	"github.com/harishphk/axen/internal/utils"
 	"context"
 	"fmt"
 

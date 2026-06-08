@@ -1,8 +1,8 @@
 package core
 
 import (
-	"axen/internal/models"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/utils"
 	"os"
 	"path/filepath"
 	"strings"

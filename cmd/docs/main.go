@@ -1,7 +1,7 @@
 package main
 
 import (
-	"axen/internal/cli"
+	"github.com/harishphk/axen/internal/cli"
 	"fmt"
 	"log"
 	"os"

@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"axen/internal/core"
-	"axen/internal/models"
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/models"
 	"fmt"
 	"sort"
 	"strings"

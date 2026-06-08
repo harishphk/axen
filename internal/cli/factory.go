@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"axen/internal/ui"
+	"github.com/harishphk/axen/internal/ui"
 	"os"
 )
 

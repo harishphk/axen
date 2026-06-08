@@ -1,4 +1,4 @@
-module axen
+module github.com/harishphk/axen
 
 go 1.26.0
 

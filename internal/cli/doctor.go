@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"axen/internal/core"
-	"axen/internal/models"
-	"axen/internal/resolvers"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/utils"
 	"os"
 	"path/filepath"
 	"strings"

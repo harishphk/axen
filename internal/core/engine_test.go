@@ -1,7 +1,7 @@
 package core
 
 import (
-	"axen/internal/models"
+	"github.com/harishphk/axen/internal/models"
 	"reflect"
 	"sort"
 	"testing"

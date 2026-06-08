@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"axen/internal/core"
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/utils"
 	"fmt"
 	"sort"
 	"strings"

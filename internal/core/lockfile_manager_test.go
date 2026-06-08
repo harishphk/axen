@@ -1,8 +1,8 @@
 package core
 
 import (
-	"axen/internal/models"
-	"axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/resolvers"
 	"os"
 	"testing"
 )

@@ -1,7 +1,7 @@
 package sources
 
 import (
-	"axen/internal/utils"
+	"github.com/harishphk/axen/internal/utils"
 	"fmt"
 	"path/filepath"
 )

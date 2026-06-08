@@ -1,7 +1,7 @@
 package core
 
 import (
-	"axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/resolvers"
 	"os"
 	"testing"
 )
