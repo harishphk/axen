@@ -49,13 +49,13 @@ cd "${TEMP_DIR}"
 CHECKSUM_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_TAG}/checksums.txt"
 
 echo "Downloading from ${DOWNLOAD_URL}..."
-if ! curl -sSL -o "${FILENAME}" "${DOWNLOAD_URL}"; then
+if ! curl -fsSL -o "${FILENAME}" "${DOWNLOAD_URL}"; then
   echo "Error: Download failed. Release binary may not be available for this platform."
   exit 1
 fi
 
 echo "Downloading checksums..."
-if ! curl -sSL -o "checksums.txt" "${CHECKSUM_URL}"; then
+if ! curl -fsSL -o "checksums.txt" "${CHECKSUM_URL}"; then
   echo "Error: Could not download checksums file."
   exit 1
 fi
