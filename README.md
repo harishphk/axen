@@ -1,6 +1,6 @@
-# Axen
+# ⚡ Axen
 
-> The Universal, Configuration-Driven Package Manager for AI Agent Skills.
+> **A configuration-driven CLI to manage and sync AI Agent Skills across multiple targets and sources.**
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/harishphk/axen)](https://goreportcard.com/report/github.com/harishphk/axen)
 [![Documentation](https://img.shields.io/badge/docs-axen.dev-blueviolet)](https://axen.domains.workers.dev/)
@@ -10,11 +10,31 @@
 
 ---
 
-## 💡 The Problem Axen Solves
+Axen allows you to subscribe to multiple skill registries (sources like Git repositories, local directories, or HTTP URLs) and deploy them automatically to the configuration folders of 60+ AI assistants (targets like Cursor, Windsurf, Roo Code, and more).
 
-The AI agent ecosystem is highly fragmented. Developers share instructions (`.cursorrules`, system prompts, agent tools, custom instructions) by copying and pasting markdown files or scripts. When you use Cursor at work, Windsurf at home, and Roo Cline in your terminal, you are forced to manage multiple proprietary folder structures manually. When prompt creators release updates, you miss them.
+```bash
+# 1. Install Axen (macOS & Linux)
+curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
 
-**Axen** solves this fragmentation by acting as a decentralized package manager for AI Agent Skills. It acts as a bridge between git-based/local skill repositories and the specific configuration paths where 60+ different AI assistants expect them. Write/maintain your skills once, install and keep them synced across all your tools instantly.
+# 2. Add a skill registry
+axen source add https://github.com/example/agent-skills.git
+
+# 3. Deploy to all your editors automatically
+axen install
+```
+
+---
+
+## 💡 Why Axen?
+
+Managing AI Agent Skills across multiple editors and projects is frustrating:
+
+*   **🧩 Target Fragmentation:** Every AI agent target expects skill packages in different directories (e.g., `.cursor/skills/`, `.windsurf/skills/`, or `.roo/skills/`).
+*   **✍️ Manual Deployment:** Copying and maintaining skill packages across multiple workspaces, machines, and tools is tedious.
+*   **🥀 Stale Skills:** When skill creators release updates, your locally installed skills become outdated because there is no automated sync mechanism.
+
+### The Solution
+Axen is a CLI tool that acts as a decentralized package manager for AI Agent Skills. Define your skill sources once, and Axen **automatically syncs and deploys your skills across all your local AI agent targets instantly**.
 
 ```text
 ┌─────────────────────────┐
@@ -38,20 +58,20 @@ The AI agent ecosystem is highly fragmented. Developers share instructions (`.cu
 
 ## ✨ Features
 
-*   **Multi-Source Support**: Fetch and install skills directly from remote Git repositories or local directories. Add multiple sources to aggregate instructions from different teams or authors.
-*   **Config-Based Tracking**: Axen maintains state through a declarative `axen.json` manifest and an `axen-lock.json` lockfile. This ensures repeatable, idempotent installations and easy configuration sharing across teams.
-*   **Intelligent Auto-Detection for 60+ Tools**: Automatically resolves installation paths across Windows, macOS, and Linux for Cursor, Windsurf, Copilot, Roo Cline, and dozens of other AI editors. You don't need to configure where skills go—Axen already knows.
-*   **Single-Command Updates**: Keep your entire instruction library up to date across all tools. Running `axen update` fetches the latest upstream commits from all sources, deploys new changes, and intelligently prunes removed files.
-*   **Skill Scaffolding**: Use `axen create <name>` to instantly scaffold a new skill package with a standardized layout (`SKILL.md`, `scripts/`, `references/`) ready to be shared.
-*   **Granular Control & Conflict Resolution**: Choose exactly which skills go to which editors using `--skills` and `--targets` flags. Handle source overlaps gracefully with interactive or automated conflict resolution.
-*   **Safe Previews**: Support for `--dry-run` across all destructive commands (`install`, `remove`, `update`) to let you preview exactly which files will be added or deleted.
-*   **Built-in Diagnostics**: Run `axen doctor` to instantly check folder permissions, lockfile integrity, and identify orphaned skill directories in your environment.
+*   **⚡ Multi-Source Support**: Fetch and install skills directly from remote Git repositories, local directories, or HTTP URLs. Add multiple sources to aggregate registries.
+*   **⚙️ Config-Based Tracking**: Axen maintains state through a declarative `axen.json` manifest and an `axen-lock.json` lockfile. This ensures repeatable, idempotent installations and easy configuration sharing.
+*   **🔍 Intelligent Auto-Detection**: Automatically resolves installation paths across Windows, macOS, and Linux for Cursor, Windsurf, Roo Code, and 60+ other AI agents. No path configuration needed.
+*   **🔄 Single-Command Updates**: Keep all your installed skills up to date. Running `axen update` fetches the latest upstream changes, deploys them, and prunes orphaned files.
+*   **🛠 Skill Scaffolding**: Use `axen create <name>` to instantly scaffold a new skill package with a standardized layout (`SKILL.md`, `scripts/`, `references/`) ready to share.
+*   **🎛 Granular Control & Conflict Resolution**: Choose exactly which skills go to which targets using `--skills` and `--targets` flags, and handle source overlaps gracefully with interactive conflict prompts.
+*   **🧪 Safe Previews**: Support for `--dry-run` across all destructive commands (`install`, `remove`, `update`) to let you preview exactly which files will be added or deleted.
+*   **🩺 Built-in Diagnostics**: Run `axen doctor` to instantly check folder permissions, lockfile integrity, and identify orphaned skill directories in your environment.
 
 ---
 
 ## 🎯 Popular Supported Tools
 
-Axen natively maps paths for 60+ AI tools across Unix/macOS and Windows, sorted by popularity:
+Axen natively maps paths for **60+ AI tools** across Unix/macOS and Windows, sorted by popularity:
 
 *   **GitHub Copilot** (`.copilot/skills/`)
 *   **Cursor Editor** (`.cursor/skills/`)
@@ -81,56 +101,63 @@ curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
 irm https://raw.githubusercontent.com/harishphk/axen/main/install.ps1 | iex
 ```
 
-### Pre-Built Binaries
-You can also download the pre-compiled binary for your operating system and architecture directly from our [GitHub Releases](https://github.com/harishphk/axen/releases) page and place it inside your system path.
-
-### Installing from Source (Go 1.22+ required)
-If you prefer to compile the tool yourself from source:
+### Installing from Source (Go 1.26+ required)
 ```bash
 go install github.com/harishphk/axen/cmd/axen@latest
 ```
 
 ---
 
-## 🛠 Quick Start
+## 🏁 Quick Start (For Users)
 
-### 1. Initialize Axen configuration
-Generate an empty project configuration manifest `axen.json` in your repository:
-```bash
-axen init
-```
+Get started using Axen to download and manage AI agent skills in under 30 seconds.
 
-### 2. Add a Skill Source
+### 1. Add a Skill Source
 Add a remote git repository containing agent skills to your local registry:
 ```bash
 axen source add https://github.com/example/agent-skills.git
 ```
 
-### 3. Install Skills
-Install skills into your detected AI agent targets interactively (or specify them via flags):
+### 2. Install Skills
+Install skills into your detected AI agent targets. Axen will automatically detect which editors (Cursor, Windsurf, etc.) you have installed:
 ```bash
 axen install agent-skills
 ```
 *Tip: Run with `-d` / `--dry-run` first to preview the installation plan safely!*
 
-### 4. List Installed Skills
-View all installed skills and their corresponding target installations:
+### 3. List Installed Skills
+View all active sources, installed skills, and their corresponding target installation directories:
 ```bash
 axen list
 ```
 
-### 5. Update Skills
-Keep your skills up-to-date with upstream changes:
+### 4. Sync & Update
+Keep all your installed prompt libraries up to date with upstream changes:
 ```bash
-axen update agent-skills
+axen update
 ```
 
 ---
 
-## 📄 Manifest & State Reference
+## 🛠 For Skill Creators (Publishing Skills)
 
-### Manifest (`axen.json`)
-The manifest file defines the skills available in a source registry, and optional **bundles** to group them:
+If you want to package and distribute your own prompts, instructions, or rules using Axen:
+
+### 1. Initialize a Skill Repository
+Create an `axen.json` manifest in the root of your git repository:
+```bash
+axen init
+```
+
+### 2. Scaffold a New Skill
+Scaffold a standardized skill folder structure (adds `SKILL.md`, `scripts/`, and `references/` directories):
+```bash
+axen create <skill-name>
+```
+
+### 3. Define the Manifest (`axen.json`)
+List your skills and define installation bundles. Here is an example manifest structure:
+
 ```json
 {
   "axen_version": "1",
@@ -157,14 +184,21 @@ The manifest file defines the skills available in a source registry, and optiona
 ```
 
 ### Skills & Bundles
+
 *   **Skills**: Individual components containing target configurations and paths to a `SKILL.md` file.
 *   **Bundles**: Groups of related skills. 
     *   If a bundle has `"is_default": true`, Axen automatically installs it when running `axen install <source>` without flags.
     *   You can install specific bundles using the `-b` / `--bundle` flag: `axen install agent-skills -b deploy`.
     *   You can remove specific bundles using: `axen remove agent-skills -b deploy`.
 
-### Lockfile (`axen-lock.json`)
-Axen writes a lockfile to track installation targets and source namespaces, facilitating clean updates and prunes:
+---
+
+## 📄 Manifest & State Reference
+
+<details>
+<summary><b>View lockfile structure (<code>axen-lock.json</code>)</b></summary>
+
+Axen writes a local lockfile to track installation targets and source namespaces, facilitating clean updates and prunes:
 ```json
 {
   "axen_version": "1",
@@ -190,53 +224,40 @@ Axen writes a lockfile to track installation targets and source namespaces, faci
   }
 }
 ```
+</details>
 
 ---
 
 ## 📖 Learn More
+
+For deep dives into Axen's architecture and advanced usage:
 *   [Full Documentation Site](https://axen.domains.workers.dev/)
 *   [Core Concepts Guide](https://axen.domains.workers.dev/guides/core-concepts)
 *   [Configuration Schema Reference](https://axen.domains.workers.dev/guides/configuration)
+
+---
 
 ## 🛠 Local Development
 
 For developers working on the Axen CLI codebase, a `Makefile` is provided in the root directory to simplify local tasks:
 
-*   **Build binary:** Compile the CLI runner to `./bin/axen`:
-    ```bash
-    make build
-    ```
-*   **Run unit tests:** Run Go unit tests:
-    ```bash
-    make test
-    ```
-*   **Run E2E tests:** Run testscript E2E tests:
-    ```bash
-    make test-e2e
-    ```
-*   **Run linter:** Execute `golangci-lint`:
-    ```bash
-    make lint
-    ```
-*   **Run security scanner:** Execute local `gosec` matching CI rules:
-    ```bash
-    make gosec
-    ```
-*   **Build & run CLI:** Run the locally compiled CLI with arguments:
-    ```bash
-    make run ARGS="list"
-    ```
-*   **Clean build files:** Remove the `./bin` directory and coverage outputs:
-    ```bash
-    make clean
-    ```
+```bash
+make build          # Compile the CLI runner to ./bin/axen
+make test           # Run Go unit tests
+make test-e2e       # Run testscript E2E integration tests
+make lint           # Execute golangci-lint
+make gosec          # Execute local security scans
+make clean          # Remove ./bin/ and coverage files
+```
 
 ---
 
 ## 🤝 Contributing & Community
+
 We welcome contributions! Please review our:
 - [Contributing Guidelines](/CONTRIBUTING.md) for local dev setup and commit styles.
 - [Code of Conduct](/CODE_OF_CONDUCT.md) to understand community standards.
 
 ## 📄 License
+
 This project is licensed under the MIT License. See [LICENSE](/LICENSE) for details.
