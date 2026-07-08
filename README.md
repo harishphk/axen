@@ -97,9 +97,19 @@ curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
 ```
 
 ### Windows (PowerShell)
+Install Axen globally using PowerShell (installs to `%USERPROFILE%\.local\bin` and automatically configures your `PATH`):
 ```powershell
 irm https://raw.githubusercontent.com/harishphk/axen/main/install.ps1 | iex
 ```
+> **Note:** If you encounter execution policy restrictions, allow scripts for the current user and run again:
+> ```powershell
+> Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+> irm https://raw.githubusercontent.com/harishphk/axen/main/install.ps1 | iex
+> ```
+> *Be sure to restart your terminal or PowerShell window after installation so `axen` is available in your `PATH`.*
+
+### Pre-built Binaries (All Platforms)
+You can also download standalone pre-built `.exe` and binary archives for Windows (`amd64` / `arm64`), macOS, and Linux directly from our [GitHub Releases](https://github.com/harishphk/axen/releases) page.
 
 ### Installing from Source (Go 1.26+ required)
 ```bash
