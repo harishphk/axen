@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,35 @@ func TestDetectSourceType(t *testing.T) {
 	}
 }
 
+func TestIsGitHubShorthand(t *testing.T) {
+	tempDir := t.TempDir()
+	localSrc := filepath.Join(tempDir, "local_src")
+	_ = os.MkdirAll(localSrc, 0755)
+
+	cases := []struct {
+		source   string
+		expected bool
+	}{
+		{"example/agent-skills", true},
+		{"owner/repo-name", true},
+		{"owner/repo_name", true},
+		{"./relative/path", false},
+		{"/absolute/path", false},
+		{"https://github.com/user/repo", false},
+		{"git@github.com:user/repo.git", false},
+		{"singleword", false},
+		{"owner/repo/extra", false},
+		{localSrc, false}, // existing local path
+	}
+
+	for _, c := range cases {
+		result := IsGitHubShorthand(c.source)
+		if result != c.expected {
+			t.Errorf("IsGitHubShorthand(%q) = %v; expected %v", c.source, result, c.expected)
+		}
+	}
+}
+
 func TestFetchSource(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -36,7 +66,11 @@ func TestFetchSource(t *testing.T) {
 	testHome := filepath.Join(tempDir, "test_home")
 	_ = os.MkdirAll(testHome, 0755)
 	_ = os.Setenv("AXEN_TEST_HOME", testHome)
-	defer func() { _ = os.Unsetenv("AXEN_TEST_HOME") }()
+	_ = os.Setenv("GIT_TERMINAL_PROMPT", "0")
+	defer func() {
+		_ = os.Unsetenv("AXEN_TEST_HOME")
+		_ = os.Unsetenv("GIT_TERMINAL_PROMPT")
+	}()
 
 	ctx := context.Background()
 
@@ -71,26 +105,20 @@ func TestFetchSource(t *testing.T) {
 		t.Fatalf("Expected error for FetchSource Git error case")
 	}
 
+	// Test Github Shorthand error
+	_, err = FetchSource(ctx, "invaliduser/invalidrepo123", "ns_shorthand_err")
+	if err == nil {
+		t.Fatalf("Expected error for FetchSource Github shorthand error case")
+	}
+	if err != nil {
+		if !strings.Contains(err.Error(), "Failed to fetch shorthand from GitHub") {
+			t.Fatalf("Expected shorthand error message to contain 'Failed to fetch shorthand from GitHub', got: %v", err.Error())
+		}
+	}
+
 	// Test Local error
 	_, err = FetchSource(ctx, filepath.Join(tempDir, "non_existent_local"), "ns_local_err")
 	if err == nil {
 		t.Fatalf("Expected error for FetchSource Local error case")
 	}
-
-	// Test HTTP / Unsupported
-	// We'll mock DetectSourceType implicitly by checking what happens if we pass "http://" but
-	// Wait, the HTTP source type is defined but DetectSourceType only returns Git or Local right now!
-	// Let's look at DetectSourceType again:
-	// if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") ... returns SourceTypeGit
-	// So SourceTypeHttp is actually unreachable through DetectSourceType!
-	// Wait, DetectSourceType:
-	// func DetectSourceType(source string) SourceType {
-	// 	if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "git@") || strings.HasSuffix(source, ".git") {
-	// 		return SourceTypeGit
-	// 	}
-	// 	return SourceTypeLocal
-	// }
-	// So how can SourceTypeHttp be reached in FetchSource? It can't currently be returned by DetectSourceType.
-	// We can't reach the HTTP branch or default branch in FetchSource directly through a normal string because DetectSourceType returns only Git or Local.
-	// However, if DetectSourceType is changed in the future, it might. But currently it's unreachable for 100% coverage unless we can force it.
 }

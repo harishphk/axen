@@ -16,8 +16,8 @@ Axen allows you to subscribe to multiple skill registries (sources like Git repo
 # 1. Install Axen (macOS & Linux)
 curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
 
-# 2. Add a skill registry
-axen source add https://github.com/example/agent-skills.git
+# 2. Add a skill registry (using GitHub shorthand or full URL)
+axen source add example/agent-skills
 
 # 3. Deploy to all your editors automatically
 axen install
@@ -123,9 +123,9 @@ go install github.com/harishphk/axen/cmd/axen@latest
 Get started using Axen to download and manage AI agent skills in under 30 seconds.
 
 ### 1. Add a Skill Source
-Add a remote git repository containing agent skills to your local registry:
+Add a remote git repository containing agent skills to your local registry. You can use the full URL or a GitHub shorthand (`owner/repo`):
 ```bash
-axen source add https://github.com/example/agent-skills.git
+axen source add example/agent-skills
 ```
 
 ### 2. Install Skills
