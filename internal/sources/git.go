@@ -1,12 +1,13 @@
 package sources
 
 import (
-	"github.com/harishphk/axen/internal/resolvers"
-	"github.com/harishphk/axen/internal/utils"
 	"context"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/utils"
 )
 
 func FetchGit(ctx context.Context, url string, namespaceName string) (string, string, error) {
