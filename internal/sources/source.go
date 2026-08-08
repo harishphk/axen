@@ -31,13 +31,39 @@ func DetectSourceType(source string) SourceType {
 	return SourceTypeLocal
 }
 
+func IsGitHubShorthand(source string) bool {
+	if strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/") || strings.HasPrefix(source, "~") || strings.HasPrefix(source, "http") || strings.HasPrefix(source, "git") {
+		return false
+	}
+
+	if utils.PathExists(source) {
+		return false
+	}
+
+	parts := strings.Split(source, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		return true
+	}
+
+	return false
+}
+
 func FetchSource(ctx context.Context, source string, namespaceName string) (*FetchResult, error) {
+	originalSource := source
+	isShorthand := IsGitHubShorthand(source)
+	if isShorthand {
+		source = "https://github.com/" + source + ".git"
+	}
+
 	srcType := DetectSourceType(source)
 
 	switch srcType {
 	case SourceTypeGit:
 		localPath, ref, err := FetchGit(ctx, source, namespaceName)
 		if err != nil {
+			if isShorthand {
+				return nil, utils.NewSourceError("Failed to fetch shorthand from GitHub. If this is not a GitHub repository, please provide the full URL. Original error: "+err.Error(), originalSource)
+			}
 			return nil, err
 		}
 		return &FetchResult{LocalPath: localPath, Ref: ref, Type: SourceTypeGit}, nil
