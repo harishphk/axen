@@ -40,3 +40,13 @@ When the upstream repository changes, easily fetch the latest updates:
 ```bash
 axen update my-skills
 ```
+
+## 5. Upgrade Axen CLI
+
+Easily keep the Axen CLI up to date:
+
+```bash
+axen upgrade
+```
+
+Axen verifies your running version and only downloads when a newer release exists. Use `axen upgrade --force` to force a reinstall.
