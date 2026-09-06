@@ -6,117 +6,144 @@ $ErrorActionPreference = 'Stop'
 $GitHubRepo = "harishphk/axen"
 $BinaryName = "axen.exe"
 
-# Detect Architecture
-$Arch = "amd64"
-if ([System.Environment]::Is64BitOperatingSystem -eq $false) {
-    Write-Error "Unsupported architecture: 32-bit Windows is not supported."
-}
-if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
-    $Arch = "arm64"
+function Get-PlatformArch {
+    if ([System.Environment]::Is64BitOperatingSystem -eq $false) {
+        Write-Error "Unsupported architecture: 32-bit Windows is not supported."
+    }
+    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+        return "arm64"
+    }
+    return "amd64"
 }
 
-Write-Host "Detecting latest release..."
-# Get latest release from GitHub API
-$ReleaseUrl = "https://api.github.com/repos/$GitHubRepo/releases/latest"
-try {
-    # Configure TLS 1.2
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $Response = Invoke-RestMethod -Uri $ReleaseUrl -UseBasicParsing
-    $LatestTag = $Response.tag_name
-} catch {
-    # Fallback tag detection if rate-limited
-    Write-Warning "GitHub API rate limit hit, detecting release via redirection..."
-    $Headers = @{}
-    $Request = [System.Net.WebRequest]::Create("https://github.com/$GitHubRepo/releases/latest")
-    $Request.AllowAutoRedirect = $false
+function Get-LatestTag {
+    Write-Host "Detecting latest release..."
+    $ReleaseUrl = "https://api.github.com/repos/$GitHubRepo/releases/latest"
     try {
-        $Response = $Request.GetResponse()
-        $RedirectUrl = $Response.Headers["Location"]
-        $LatestTag = $RedirectUrl.Split('/')[-1]
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $Response = Invoke-RestMethod -Uri $ReleaseUrl -UseBasicParsing
+        return $Response.tag_name
     } catch {
-        Write-Error "Could not retrieve latest release tag."
-    }
-}
-
-if (-not $LatestTag) {
-    Write-Error "Could not parse latest release tag."
-}
-
-Write-Host "Installing Axen $LatestTag (windows/$Arch)..."
-
-$VersionNum = $LatestTag.TrimStart('v')
-$FileName = "axen_${VersionNum}_windows_${Arch}.zip"
-$DownloadUrl = "https://github.com/$GitHubRepo/releases/download/$LatestTag/$FileName"
-$ChecksumUrl = "https://github.com/$GitHubRepo/releases/download/$LatestTag/checksums.txt"
-
-# Create a temporary directory for extraction
-$TempDir = Join-Path $env:TEMP "axen-installer"
-if (Test-Path $TempDir) {
-    Remove-Item $TempDir -Recurse -Force
-}
-New-Item -ItemType Directory -Path $TempDir | Out-Null
-
-$ZipPath = Join-Path $TempDir $FileName
-$ChecksumPath = Join-Path $TempDir "checksums.txt"
-
-Write-Host "Downloading from $DownloadUrl..."
-Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
-
-Write-Host "Verifying checksum..."
-try {
-    Invoke-WebRequest -Uri $ChecksumUrl -OutFile $ChecksumPath -UseBasicParsing
-    $ExpectedHash = ""
-    Get-Content $ChecksumPath | ForEach-Object {
-        $parts = $_ -split "\s+"
-        if ($parts.Length -ge 2 -and $parts[1].Trim() -eq $FileName) {
-            $ExpectedHash = $parts[0].Trim().ToLower()
+        Write-Warning "GitHub API rate limit hit, detecting release via redirection..."
+        $Request = [System.Net.WebRequest]::Create("https://github.com/$GitHubRepo/releases/latest")
+        $Request.AllowAutoRedirect = $false
+        try {
+            $Response = $Request.GetResponse()
+            $RedirectUrl = $Response.Headers["Location"]
+            return $RedirectUrl.Split('/')[-1]
+        } catch {
+            Write-Error "Could not retrieve latest release tag."
         }
     }
-    if ($ExpectedHash) {
-        $ActualHash = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash.ToLower()
-        if ($ActualHash -ne $ExpectedHash) {
-            Write-Error "Checksum verification failed! Expected: $ExpectedHash, got: $ActualHash"
+}
+
+function Test-AlreadyUpToDate($latestTag) {
+    $force = $env:AXEN_FORCE -eq "1"
+    if (-not $force -and (Get-Command axen -ErrorAction SilentlyContinue)) {
+        try {
+            $currentOutput = & axen --version 2>$null
+            $currentVersion = ($currentOutput -split "\s+")[-1]
+            $versionNum = $latestTag.TrimStart('v')
+            if ($currentVersion -and ($currentVersion -eq $latestTag -or $currentVersion -eq $versionNum)) {
+                Write-Host "Axen is already up to date ($currentVersion)."
+                Write-Host "To force reinstall, run: `$env:AXEN_FORCE = '1'; irm https://raw.githubusercontent.com/$GitHubRepo/main/install.ps1 | iex"
+                return $true
+            }
+        } catch {}
+    }
+    return $false
+}
+
+function Update-UserPath($installDir) {
+    $pathValue = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    $paths = $pathValue -split ";"
+    $isInstalledInPath = $false
+    foreach ($p in $paths) {
+        if ($p.TrimEnd('\') -eq $installDir.TrimEnd('\')) {
+            $isInstalledInPath = $true
+            break
         }
     }
-} catch {
-    Write-Warning "Could not verify checksum: $_"
-}
 
-Write-Host "Extracting..."
-Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
-
-# Determine target directory (install to $HOME\.local\bin by default)
-$InstallDir = Join-Path $HOME ".local\bin"
-if (-not (Test-Path $InstallDir)) {
-    New-Item -ItemType Directory -Path $InstallDir | Out-Null
-}
-
-$SourceExe = Join-Path $TempDir $BinaryName
-$TargetExe = Join-Path $InstallDir $BinaryName
-
-Write-Host "Installing to $TargetExe..."
-Copy-Item -Path $SourceExe -Destination $TargetExe -Force
-
-# Clean up
-Remove-Item $TempDir -Recurse -Force
-
-Write-Host "Axen $LatestTag has been installed successfully to $TargetExe!"
-
-# Check if Target Dir is in PATH
-$PathValue = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-$Paths = $PathValue -split ";"
-$IsInstalledInPath = $false
-foreach ($P in $Paths) {
-    if ($P.TrimEnd('\') -eq $InstallDir.TrimEnd('\')) {
-        $IsInstalledInPath = $true
-        break
+    if (-not $isInstalledInPath) {
+        Write-Warning "The installation directory '$installDir' is not in your User PATH."
+        Write-Host "Adding '$installDir' to User PATH environment variable..."
+        $newPath = $pathValue + ";" + $installDir
+        [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+        Write-Host "PATH updated. Please restart your terminal/PowerShell window to use 'axen'."
     }
 }
 
-if (-not $IsInstalledInPath) {
-    Write-Warning "The installation directory '$InstallDir' is not in your User PATH."
-    Write-Host "Adding '$InstallDir' to User PATH environment variable..."
-    $NewPath = $PathValue + ";" + $InstallDir
-    [System.Environment]::SetEnvironmentVariable("PATH", $NewPath, "User")
-    Write-Host "PATH updated. Please restart your terminal/PowerShell window to use 'axen'."
+function Install-Axen {
+    $arch = Get-PlatformArch
+    $latestTag = Get-LatestTag
+    if (-not $latestTag) {
+        Write-Error "Could not parse latest release tag."
+    }
+
+    if (Test-AlreadyUpToDate $latestTag) {
+        return
+    }
+
+    $versionNum = $latestTag.TrimStart('v')
+    Write-Host "Installing Axen $latestTag (windows/$arch)..."
+
+    $fileName = "axen_${versionNum}_windows_${arch}.zip"
+    $downloadUrl = "https://github.com/$GitHubRepo/releases/download/$latestTag/$fileName"
+    $checksumUrl = "https://github.com/$GitHubRepo/releases/download/$latestTag/checksums.txt"
+
+    # Use a unique process temp directory
+    $tempDir = Join-Path $env:TEMP ("axen-installer-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $tempDir | Out-Null
+
+    try {
+        $zipPath = Join-Path $tempDir $fileName
+        $checksumPath = Join-Path $tempDir "checksums.txt"
+
+        Write-Host "Downloading from $downloadUrl..."
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
+
+        Write-Host "Verifying checksum..."
+        try {
+            Invoke-WebRequest -Uri $checksumUrl -OutFile $checksumPath -UseBasicParsing
+            $expectedHash = ""
+            Get-Content $checksumPath | ForEach-Object {
+                $parts = $_ -split "\s+"
+                if ($parts.Length -ge 2 -and $parts[1].Trim() -eq $fileName) {
+                    $expectedHash = $parts[0].Trim().ToLower()
+                }
+            }
+            if ($expectedHash) {
+                $actualHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
+                if ($actualHash -ne $expectedHash) {
+                    Write-Error "Checksum verification failed! Expected: $expectedHash, got: $actualHash"
+                }
+            }
+        } catch {
+            Write-Warning "Could not verify checksum: $_"
+        }
+
+        Write-Host "Extracting..."
+        Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force
+
+        $installDir = Join-Path $HOME ".local\bin"
+        if (-not (Test-Path $installDir)) {
+            New-Item -ItemType Directory -Path $installDir | Out-Null
+        }
+
+        $sourceExe = Join-Path $tempDir $BinaryName
+        $targetExe = Join-Path $installDir $BinaryName
+
+        Write-Host "Installing to $targetExe..."
+        Copy-Item -Path $sourceExe -Destination $targetExe -Force
+
+        Write-Host "Axen $latestTag has been installed successfully to $targetExe!"
+        Update-UserPath $installDir
+    } finally {
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
+
+Install-Axen

@@ -14,7 +14,8 @@ axen upgrade [flags]
 ### Options
 
 ```
-  -h, --help   help for upgrade
+  -f, --force   Force reinstall even if already up to date
+  -h, --help    help for upgrade
 ```
 
 ### Options inherited from parent commands

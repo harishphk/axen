@@ -38,3 +38,19 @@ Once installed, verify the installation by checking the version and running the 
 axen --help
 axen doctor
 ```
+
+## Upgrading Axen
+
+To upgrade Axen to the latest version:
+
+```bash
+axen upgrade
+```
+
+Axen automatically compares your current version against the latest GitHub release. If you are already up to date, it exits immediately without downloading.
+
+To force a reinstallation or repair of your current version, use the `--force` flag:
+
+```bash
+axen upgrade --force
+```

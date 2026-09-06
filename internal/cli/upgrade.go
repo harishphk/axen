@@ -1,16 +1,15 @@
 package cli
 
 import (
-	"os"
-	"os/exec"
-	"runtime"
-
+	"github.com/harishphk/axen/internal/core"
 	"github.com/harishphk/axen/internal/utils"
 	"github.com/spf13/cobra"
 )
 
 func NewCmdUpgrade() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+
+	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Axen CLI to the latest version",
 		Args:  cobra.NoArgs,
@@ -21,17 +20,34 @@ func NewCmdUpgrade() *cobra.Command {
 			}
 			defer lock.Unlock()
 
-			utils.Info("Upgrading Axen CLI...")
+			utils.Info("Checking for Axen updates...")
 
-			var execCmd *exec.Cmd
-			if runtime.GOOS != "windows" {
-				execCmd = exec.CommandContext(cmd.Context(), "/bin/sh", "-c", "curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh")
-			} else {
-				execCmd = exec.CommandContext(cmd.Context(), "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://raw.githubusercontent.com/harishphk/axen/main/install.ps1 | iex")
+			res, err := core.UpgradeSelf(cmd.Context(), force, func(msg string) {
+				utils.Info("%s", msg)
+			})
+			if err != nil {
+				return err
 			}
-			execCmd.Stdout = os.Stdout
-			execCmd.Stderr = os.Stderr
-			return execCmd.Run()
+
+			if res.IsDevBuild {
+				utils.Info("You are running a development build of Axen (dev).")
+				utils.Info("The latest official release is %s.", res.NewVersion)
+				utils.Info("To replace your local development binary with the official release, run:")
+				utils.Info("  axen upgrade --force")
+				return nil
+			}
+
+			if res.AlreadyUpToDate {
+				utils.Success("Axen is already up to date (%s).", res.CurrentVersion)
+				return nil
+			}
+
+			utils.Success("Axen has been successfully upgraded to %s (%s)!", res.NewVersion, res.ExecutablePath)
+			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force reinstall even if already up to date")
+
+	return cmd
 }

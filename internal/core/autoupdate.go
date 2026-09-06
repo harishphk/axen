@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -217,6 +217,56 @@ type githubRelease struct {
 	TagName string `json:"tag_name"`
 }
 
+// FetchLatestCliReleaseTag retrieves the latest release tag from GitHub,
+// falling back to inspecting the redirect header if API rate-limited.
+func FetchLatestCliReleaseTag(ctx context.Context) (string, error) {
+	// 1. Try standard GitHub API
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/harishphk/axen/releases/latest", nil)
+	if err == nil {
+		req.Header.Set("User-Agent", "axen-cli/"+Version)
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil {
+			defer func() { _ = resp.Body.Close() }()
+			if resp.StatusCode == http.StatusOK {
+				var release githubRelease
+				if err := json.NewDecoder(resp.Body).Decode(&release); err == nil && release.TagName != "" {
+					return release.TagName, nil
+				}
+			}
+		}
+	}
+
+	// 2. Fallback: HEAD request to releases/latest to follow Location redirect without API rate-limiting
+	headReq, err := http.NewRequestWithContext(ctx, http.MethodHead, "https://github.com/harishphk/axen/releases/latest", nil)
+	if err != nil {
+		return "", err
+	}
+	headReq.Header.Set("User-Agent", "axen-cli/"+Version)
+	noRedirectClient := &http.Client{
+		Timeout: 5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	headResp, err := noRedirectClient.Do(headReq)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = headResp.Body.Close() }()
+
+	loc := headResp.Header.Get("Location")
+	if loc != "" {
+		parts := strings.Split(strings.TrimRight(loc, "/"), "/")
+		tag := parts[len(parts)-1]
+		if strings.HasPrefix(tag, "v") {
+			return tag, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not determine latest release tag")
+}
+
 func checkForCliUpdate(cache *models.UpdateCache) bool {
 	if Version == "dev" {
 		return false
@@ -226,47 +276,33 @@ func checkForCliUpdate(cache *models.UpdateCache) bool {
 		return false
 	}
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("https://api.github.com/repos/harishphk/axen/releases/latest")
+	tag, err := FetchLatestCliReleaseTag(context.Background())
 	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 200 {
-		return false
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false
-	}
-
-	var release githubRelease
-	if err := json.Unmarshal(body, &release); err != nil {
 		return false
 	}
 
 	cache.CliUpdate.LastCheckedAt = time.Now().UTC().Format(time.RFC3339)
 
-	latestVersion := release.TagName
+	latestVersion := tag
 	currentVersion := Version
 	notifiedVersion := cache.CliUpdate.LastNotifiedVersion
 
-	if isNewerVersion(latestVersion, currentVersion) && isNewerVersion(latestVersion, notifiedVersion) {
-		cache.CliUpdate.PendingNotification = release.TagName
+	if IsNewerVersion(latestVersion, currentVersion) && IsNewerVersion(latestVersion, notifiedVersion) {
+		cache.CliUpdate.PendingNotification = tag
 	}
 
 	return true
 }
 
-func isNewerVersion(v1, v2 string) bool {
+// IsNewerVersion compares two semver strings (with or without 'v' prefix)
+// and returns true if v1 is newer than v2.
+func IsNewerVersion(v1, v2 string) bool {
 	v1 = strings.TrimPrefix(v1, "v")
 	v2 = strings.TrimPrefix(v2, "v")
 	if v1 == "" {
 		return false
 	}
-	if v2 == "" {
+	if v2 == "" || v2 == "dev" {
 		return true
 	}
 

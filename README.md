@@ -94,7 +94,7 @@ Axen provides a simple, memorable command structure:
 | `axen install [ns]` | Deploy all skills from sources to your AI editors. |
 | `axen remove [ns]` | Uninstall specific skills or bundles from your editors. |
 | `axen update [ns]` | Force a manual synchronization of all installed skills. |
-| `axen upgrade` | Upgrade the Axen CLI itself to the latest version. |
+| `axen upgrade [-f]`| Upgrade Axen CLI to the latest version (idempotent, supports `--force`). |
 | `axen init` | Initialize a new `axen.json` manifest in the current directory. |
 | `axen create <name>` | Scaffold a new skill folder with templates and structure. |
 | `axen config` | Launch an interactive menu to manage global Axen settings. |
@@ -166,7 +166,7 @@ axen update
 ### 5. Silent Background Updates
 Axen includes a completely invisible, non-blocking background auto-updater:
 *   **Skill Updates**: Depending on a source's update policy (`daily`, `weekly`), Axen will silently fetch and install new skill updates in a detached background process while you work. When it finishes, it leaves a simple success note (`✨ Auto-updated [skill] in the background`) the next time you use the CLI. For sources configured as `manual`, Axen never queries the network in the background; updates are only pulled when you explicitly run `axen update`.
-*   **CLI Updates**: Axen also checks for updates to itself once every 24 hours. If a new version is released, it notifies you so you can instantly upgrade by running `axen upgrade`.
+*   **CLI Updates**: Axen also checks for updates to itself once every 24 hours. If a new version is released, it notifies you so you can instantly upgrade by running `axen upgrade`. Running `axen upgrade` is idempotent—it checks your running version and skips downloading if you are already up to date (use `axen upgrade --force` to force a reinstall).
 
 ### 6. Configuration
 Axen can be configured via a seamless interactive UI. Just run:
