@@ -95,6 +95,7 @@ func NewCmdDoctor(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Validate installation integrity",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issues := 0
 

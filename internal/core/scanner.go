@@ -84,6 +84,7 @@ func ScanSkills(rootDir string) ([]ScannedSkill, error) {
 		}
 
 		rel, _ := filepath.Rel(rootDir, dir)
+		rel = filepath.ToSlash(rel)
 		if rel == "." {
 			rel = ""
 		}

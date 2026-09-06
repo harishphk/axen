@@ -2,7 +2,7 @@ env TARGET=$WORK/.codex/skills
 env SRC=$WORK/source
 
 # Install only skill_a
-exec axen source add $SRC
+exec axen source add $SRC -n source
 exec axen install source --targets=codex --skills=skill_a
 
 # Check that only skill_a was installed

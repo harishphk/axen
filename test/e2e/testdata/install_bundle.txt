@@ -1,5 +1,5 @@
 # Add local repo as a source
-exec axen source add ./local-repo
+exec axen source add ./local-repo -n local-repo
 
 # Test default bundle auto-install
 # Running without skills or bundles should install skill2 automatically due to default bundle

@@ -122,6 +122,38 @@ func GetDefaultTargets() map[string]string {
 }
 
 type Config struct {
-	Targets         map[string]string `json:"targets"`
-	DefaultTemplate *string           `json:"default_template"`
+	Targets             map[string]string `json:"targets"`
+	DefaultTemplate     *string           `json:"default_template"`
+	CheckForUpdates     bool              `json:"check_for_updates"`
+	DefaultUpdatePolicy string            `json:"default_update_policy,omitempty"`
+}
+
+func NewConfig() *Config {
+	return &Config{
+		Targets:             GetDefaultTargets(),
+		CheckForUpdates:     true,
+		DefaultUpdatePolicy: "daily",
+	}
+}
+
+var ValidUpdatePolicies = []string{"daily", "weekly", "manual"}
+
+func IsValidUpdatePolicy(policy string) bool {
+	for _, p := range ValidUpdatePolicies {
+		if p == policy {
+			return true
+		}
+	}
+	return false
+}
+
+var ValidConflictStrategies = []string{"prompt", "overwrite", "keep"}
+
+func IsValidConflictStrategy(strategy string) bool {
+	for _, s := range ValidConflictStrategies {
+		if s == strategy {
+			return true
+		}
+	}
+	return false
 }

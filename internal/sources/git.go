@@ -26,21 +26,37 @@ func FetchGit(ctx context.Context, url string, namespaceName string) (string, st
 		utils.Debug("Fetching latest for %s...", namespaceName)
 		fetchCmd := exec.CommandContext(ctx, "git", "fetch")
 		fetchCmd.Dir = localPath
-		if err := fetchCmd.Run(); err != nil {
-			return "", "", utils.NewSourceError("Git fetch failed: "+err.Error(), url)
+		if out, err := fetchCmd.CombinedOutput(); err != nil {
+			msg := strings.TrimSpace(string(out))
+			if msg == "" {
+				msg = err.Error()
+			}
+			return "", "", utils.NewSourceError("Git fetch failed: "+msg, url)
 		}
 
 		utils.Debug("Resetting to remote branch for %s...", namespaceName)
 		resetCmd := exec.CommandContext(ctx, "git", "reset", "--hard", "@{u}")
 		resetCmd.Dir = localPath
-		if err := resetCmd.Run(); err != nil {
-			return "", "", utils.NewSourceError("Git reset failed: "+err.Error(), url)
+		if out, err := resetCmd.CombinedOutput(); err != nil {
+			msg := strings.TrimSpace(string(out))
+			if msg == "" {
+				msg = err.Error()
+			}
+			return "", "", utils.NewSourceError("Git reset failed: "+msg, url)
 		}
 	} else {
+		// If localPath exists but is not a valid git repo, remove it first
+		if utils.PathExists(localPath) {
+			_ = utils.RemoveDir(localPath)
+		}
 		utils.Debug("Cloning %s...", url)
 		cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", "--", url, localPath)
-		if err := cmd.Run(); err != nil {
-			return "", "", utils.NewSourceError("Git clone failed: "+err.Error(), url)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			msg := strings.TrimSpace(string(out))
+			if msg == "" {
+				msg = err.Error()
+			}
+			return "", "", utils.NewSourceError("Git clone failed: "+msg, url)
 		}
 	}
 

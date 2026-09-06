@@ -150,21 +150,27 @@ func MergeIntent(current Intent, action IntentAction) Intent {
 func ResolveIntent(intent Intent, manifest *models.Manifest) ResolvedState {
 	desired := make(map[string]bool)
 
-	if intent.SyncAll {
-		// SyncAll: every skill in the manifest is desired
-		for name := range manifest.Skills {
-			desired[name] = true
-		}
-	} else {
-		// Expand bundles
-		for _, bundleName := range intent.Bundles {
-			if bundle, ok := manifest.Bundles[bundleName]; ok {
-				for _, skill := range bundle.Skills {
-					desired[skill] = true
+	if manifest != nil {
+		if intent.SyncAll {
+			// SyncAll: every skill in the manifest is desired
+			for name := range manifest.Skills {
+				desired[name] = true
+			}
+		} else {
+			// Expand bundles
+			for _, bundleName := range intent.Bundles {
+				if bundle, ok := manifest.Bundles[bundleName]; ok {
+					for _, skill := range bundle.Skills {
+						desired[skill] = true
+					}
 				}
 			}
+			// Add explicit skills
+			for _, skill := range intent.ExplicitSkills {
+				desired[skill] = true
+			}
 		}
-		// Add explicit skills
+	} else {
 		for _, skill := range intent.ExplicitSkills {
 			desired[skill] = true
 		}
@@ -384,8 +390,10 @@ func persistState(
 		isOverride := strings.Join(skillTargets, ",") != strings.Join(defaultTargets, ",")
 
 		skillVersion := ""
-		if se, ok := manifest.Skills[r.SkillName]; ok {
-			skillVersion = se.Version
+		if manifest != nil {
+			if se, ok := manifest.Skills[r.SkillName]; ok {
+				skillVersion = se.Version
+			}
 		}
 
 		ls := models.LockfileSkill{}
@@ -401,15 +409,40 @@ func persistState(
 
 	// 3. Build namespace entry with intent + state
 	nsSource := source
-	if fetchResult.Type == sources.SourceTypeLocal {
+	if fetchResult != nil && fetchResult.Type == sources.SourceTypeLocal {
 		nsSource = fetchResult.LocalPath
+	}
+
+	existing, hasExisting := lockfile.Namespaces[namespace]
+
+	nsType := ""
+	if fetchResult != nil {
+		nsType = string(fetchResult.Type)
+	} else if hasExisting {
+		nsType = existing.Type
+	}
+
+	nsRef := ""
+	if fetchResult != nil {
+		nsRef = fetchResult.Ref
+	} else if hasExisting {
+		nsRef = existing.Ref
+	}
+
+	updatePolicy := ""
+	lastCheckedAt := ""
+	if hasExisting {
+		updatePolicy = existing.UpdatePolicy
+		lastCheckedAt = existing.LastCheckedAt
 	}
 
 	entry := models.NamespaceEntry{
 		Source:         nsSource,
-		Type:           string(fetchResult.Type),
-		Ref:            fetchResult.Ref,
+		Type:           nsType,
+		Ref:            nsRef,
 		UpdatedAt:      time.Now().UTC().Format(time.RFC3339),
+		UpdatePolicy:   updatePolicy,
+		LastCheckedAt:  lastCheckedAt,
 		SyncAll:        resolved.Intent.SyncAll,
 		Excluded:       resolved.Intent.Excluded,
 		Targets:        resolved.Intent.Targets,
@@ -426,6 +459,9 @@ func persistState(
 
 // updateSourcesCache refreshes the sources.json cache from the manifest.
 func updateSourcesCache(namespace string, manifest *models.Manifest) {
+	if manifest == nil {
+		return
+	}
 	cache, _ := ReadSourcesIndex()
 	cacheNs := models.CacheNamespace{Available: make(map[string]models.AvailableSkill)}
 	for skillName, entry := range manifest.Skills {

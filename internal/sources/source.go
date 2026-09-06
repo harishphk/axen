@@ -3,6 +3,7 @@ package sources
 import (
 	"github.com/harishphk/axen/internal/utils"
 	"context"
+	"path/filepath"
 	"strings"
 )
 
@@ -16,9 +17,10 @@ const (
 )
 
 type FetchResult struct {
-	LocalPath string
-	Ref       string
-	Type      SourceType
+	LocalPath      string
+	Ref            string
+	Type           SourceType
+	ResolvedSource string
 }
 
 func DetectSourceType(source string) SourceType {
@@ -28,20 +30,20 @@ func DetectSourceType(source string) SourceType {
 	if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "git://") || strings.HasPrefix(source, "git@") || strings.HasSuffix(source, ".git") {
 		return SourceTypeGit
 	}
-	return SourceTypeLocal
+	if strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/") || strings.HasPrefix(source, "~") || filepath.IsAbs(source) {
+		return SourceTypeLocal
+	}
+	return SourceTypeUnsupported
 }
 
 func IsGitHubShorthand(source string) bool {
-	if strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/") || strings.HasPrefix(source, "~") || strings.HasPrefix(source, "http") || strings.HasPrefix(source, "git") {
+	if strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/") || strings.HasPrefix(source, "~") || strings.HasPrefix(source, "http") || strings.HasPrefix(source, "git") || filepath.IsAbs(source) {
 		return false
 	}
 
-	if utils.PathExists(source) {
-		return false
-	}
-
-	parts := strings.Split(source, "/")
-	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+	cleanSource := strings.TrimSuffix(source, "/")
+	parts := strings.Split(cleanSource, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" && !strings.Contains(cleanSource, " ") {
 		return true
 	}
 
@@ -50,9 +52,11 @@ func IsGitHubShorthand(source string) bool {
 
 func FetchSource(ctx context.Context, source string, namespaceName string) (*FetchResult, error) {
 	originalSource := source
-	isShorthand := IsGitHubShorthand(source)
+	
+	cleanSource := strings.TrimSuffix(source, "/")
+	isShorthand := IsGitHubShorthand(cleanSource)
 	if isShorthand {
-		source = "https://github.com/" + source + ".git"
+		source = "https://github.com/" + cleanSource + ".git"
 	}
 
 	srcType := DetectSourceType(source)
@@ -66,17 +70,17 @@ func FetchSource(ctx context.Context, source string, namespaceName string) (*Fet
 			}
 			return nil, err
 		}
-		return &FetchResult{LocalPath: localPath, Ref: ref, Type: SourceTypeGit}, nil
+		return &FetchResult{LocalPath: localPath, Ref: ref, Type: SourceTypeGit, ResolvedSource: source}, nil
 	case SourceTypeLocal:
 		localPath, ref, err := FetchLocal(source)
 		if err != nil {
 			return nil, err
 		}
-		return &FetchResult{LocalPath: localPath, Ref: ref, Type: SourceTypeLocal}, nil
+		return &FetchResult{LocalPath: localPath, Ref: ref, Type: SourceTypeLocal, ResolvedSource: localPath}, nil
 	case SourceTypeHttp:
 		return nil, utils.NewSourceError("HTTP/ZIP sources are not yet supported (coming in v1.1)", source)
 	case SourceTypeUnsupported:
-		return nil, utils.NewSourceError("Unsupported source format", source)
+		return nil, utils.NewSourceError("Invalid source format. For GitHub, use 'owner/repo' or a full URL. For local directories, use a path starting with './', '/', or '~/'.", originalSource)
 	default:
 		return nil, utils.NewSourceError("Unknown source type", source)
 	}

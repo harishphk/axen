@@ -3,17 +3,17 @@ env SRC=$WORK/source
 env SRC2=$WORK/source2
 
 # Install skill_a from SRC
-exec axen source add $SRC
+exec axen source add $SRC -n source
 exec axen install source --all --targets=codex
 exists $TARGET/skill_a/SKILL.md
 
 # Try to install skill_a from SRC2, should warn about conflict
-exec axen source add $SRC2
+exec axen source add $SRC2 -n source2
 exec axen install source2 --all --targets=codex
 stdout 'Conflict Detected'
 
 # Force install skill_a from SRC2
-exec axen source add $SRC2
+exec axen source add $SRC2 -n source2
 exec axen install source2 --all --targets=codex --force
 exists $TARGET/skill_a/SKILL.md
 

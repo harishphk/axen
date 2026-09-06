@@ -22,9 +22,9 @@ func TestTargets(t *testing.T) {
 	axenDir := filepath.Join(tmpDir, ".axen")
 	_ = os.MkdirAll(axenDir, 0755)
 
-	configPath := filepath.Join(axenDir, "axen-config.json")
+	configPath := filepath.Join(axenDir, "config.json")
 
-	// Create a mock axen-config.json
+	// Create a mock config.json
 	mockConfig := models.Config{
 		Targets: map[string]string{
 			"custom": "~/custom/skills/",

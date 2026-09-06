@@ -2,7 +2,7 @@ env TARGET=$WORK/.codex/skills
 env SRC=$WORK/source
 
 # Install both skills
-exec axen source add $SRC
+exec axen source add $SRC -n source
 exec axen install source --targets=codex --skills=skill_a,skill_b
 exists $TARGET/skill_a/SKILL.md
 exists $TARGET/skill_b/SKILL.md

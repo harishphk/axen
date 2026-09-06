@@ -1,14 +1,25 @@
 package cli
 
 import (
+	"context"
+
 	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/services"
 	"github.com/harishphk/axen/internal/ui"
 	"github.com/harishphk/axen/internal/utils"
-	"context"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
+
+type RunRemoveOptions struct {
+	All            bool
+	DryRun         bool
+	Exclude        bool
+	SkillsFilter   []string
+	BundleFilter   []string
+	IsSourceRemove bool
+}
 
 func NewCmdRemove(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
@@ -51,16 +62,10 @@ func NewCmdRemove(deps *Dependencies) *cobra.Command {
 	cmd.Flags().StringSliceP("skills", "s", nil, "Comma-separated list of specific skills to remove")
 	cmd.Flags().StringSliceP("bundle", "b", nil, "Comma-separated list of specific bundles to remove")
 
-	return cmd
-}
+	cmd.MarkFlagsMutuallyExclusive("all", "skills")
+	cmd.MarkFlagsMutuallyExclusive("all", "bundle")
 
-type RunRemoveOptions struct {
-	All            bool
-	DryRun         bool
-	Exclude        bool
-	SkillsFilter   []string
-	BundleFilter   []string
-	IsSourceRemove bool
+	return cmd
 }
 
 func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, opts RunRemoveOptions) error {
@@ -97,7 +102,6 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 		}
 	}
 
-	// --- Determine what to remove ---
 	var skillsToRemove []string
 	var bundlesToRemove []string
 
@@ -132,27 +136,34 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 		bundlesToRemove = opts.BundleFilter
 	}
 
-	// --- Build IntentAction ---
-	action := core.IntentAction{
-		RemoveBundles: bundlesToRemove,
-		RemoveSkills:  skillsToRemove,
+	installSvc := &services.InstallService{}
+	
+	var spinner *pterm.SpinnerPrinter
+	fetchOpts := services.FetchOptions{
+		OnFetchStart: func(ns string) {
+			spinner, _ = utils.StartSpinner("Computing state for " + namespaceName + "...")
+		},
+		OnFetchDone: func(ns string, err error) {
+			if err != nil {
+				spinner.Fail("Failed to fetch state")
+			}
+		},
 	}
 
-	// Fetch manifest early — needed for bundle resolution in SyncAll handling
-	spinner, _ := utils.StartSpinner("Computing state for " + namespaceName + "...")
-	fetchResult, manifest, err := core.FetchAndResolve(ctx, nsEntry.Source, namespaceName)
+	fetchResult, manifest, err := installSvc.FetchManifest(ctx, nsEntry.Source, namespaceName, fetchOpts)
 	if err != nil {
-		spinner.Fail(err.Error())
 		return err
 	}
-	spinner.Success("Computed state")
+	if spinner != nil {
+		spinner.Success("Computed state")
+	}
 
-	// PRE-HOOK: SyncAll handling
-	// When SyncAll is true and we're removing skills or bundles, we need to
-	// either exclude or disable SyncAll. Otherwise removal has no effect since
-	// SyncAll overrides by making ALL manifest skills desired.
 	currentIntent := core.GetIntent(lockfile, namespaceName)
 	isPartialRemove := !opts.All && (len(skillsToRemove) > 0 || len(bundlesToRemove) > 0)
+	var setSyncAll *bool
+	var addSkills []string
+	var addExcluded []string
+
 	if currentIntent.SyncAll && isPartialRemove && !opts.DryRun && !opts.Exclude {
 		if len(skillsToRemove) > 0 {
 			excludeMode, err := ui.PromptSyncAllRemoval(deps.Prompter, namespaceName)
@@ -165,13 +176,9 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 		}
 
 		if !opts.Exclude {
-			// Disable SyncAll and convert all currently installed skills
-			// (except the ones being removed) to explicit skills.
-			// Skills that belong to remaining bundles stay as bundle-tracked.
-			syncAllFalse := false
-			action.SetSyncAll = &syncAllFalse
+			f := false
+			setSyncAll = &f
 
-			// Compute which bundles remain after removal
 			remainingBundles := make(map[string]bool)
 			for _, b := range currentIntent.Bundles {
 				remainingBundles[b] = true
@@ -180,7 +187,6 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 				delete(remainingBundles, b)
 			}
 
-			// Figure out which skills are covered by remaining bundles
 			bundleCoveredSkills := make(map[string]bool)
 			for bName := range remainingBundles {
 				if bundle, ok := manifest.Bundles[bName]; ok {
@@ -190,12 +196,10 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 				}
 			}
 
-			// Skills not covered by remaining bundles need to be explicit
 			removeSet := make(map[string]bool)
 			for _, r := range skillsToRemove {
 				removeSet[r] = true
 			}
-			// Also compute bundle skills being removed
 			for _, bName := range bundlesToRemove {
 				if bundle, ok := manifest.Bundles[bName]; ok {
 					for _, s := range bundle.Skills {
@@ -211,39 +215,55 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 				if bundleCoveredSkills[skillName] {
 					continue
 				}
-				action.AddSkills = append(action.AddSkills, skillName)
+				addSkills = append(addSkills, skillName)
 			}
 		}
 	}
 
 	if opts.All {
-		syncAllFalse := false
-		action.SetSyncAll = &syncAllFalse
+		f := false
+		setSyncAll = &f
 	}
 
-	// Exclude flag: add removed skills to the excluded list
 	if opts.Exclude && len(skillsToRemove) > 0 {
-		action.AddExcluded = skillsToRemove
+		addExcluded = skillsToRemove
 	}
 
-	// Merge intent
-	newIntent := core.MergeIntent(currentIntent, action)
+	req := services.RemoveRequest{
+		NamespaceName: namespaceName,
+		SourceURL:     nsEntry.Source,
+		FetchResult:   fetchResult,
+		Manifest:      manifest,
+		RemoveSkills:  skillsToRemove,
+		RemoveBundles: bundlesToRemove,
+		AddSkills:     addSkills,
+		AddExcluded:   addExcluded,
+		SetSyncAll:    setSyncAll,
+		RemoveAll:     opts.All,
+		DryRun:        opts.DryRun,
+		ConflictResolver: func(skillName string, candidates []core.ConflictCandidate) (string, error) {
+			return ui.PromptConflictResolution(deps.Prompter, skillName, candidates)
+		},
+	}
 
-	// Reconcile
-	result, err := core.Reconcile(ctx, lockfile, namespaceName, nsEntry.Source, fetchResult, manifest, newIntent, core.ReconcileOpts{
-		DryRun: opts.DryRun,
-	})
+	svc := &services.RemoveService{}
+	result, err := svc.Remove(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	// Print results
+	pterm.Println()
 	for _, p := range result.Pruned {
 		ui.PrintRemoveResults(p.SkillName, p.Removed)
 	}
 
-	// POST-HOOK: If no skills remain, prompt to remove the source
 	if !opts.DryRun {
+		if opts.IsSourceRemove {
+			utils.Success("Successfully removed source %s!", pterm.Cyan(namespaceName))
+		}
+
+		// Re-read lockfile to check if namespace is empty
+		lockfile, _ = core.ReadLockfile()
 		if ns, ok := lockfile.Namespaces[namespaceName]; ok && len(ns.Skills.Installed) == 0 {
 			removeSource := true
 			if !opts.IsSourceRemove {
@@ -263,7 +283,7 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 					_ = core.WriteSourcesIndex(cache)
 				}
 
-				utils.Success("Removed source repository %s", namespaceName)
+				utils.Success("Removed source repository %s", pterm.Cyan(namespaceName))
 			}
 		}
 	}

@@ -27,8 +27,11 @@ func axenMain() int {
 
 	deps := cli.NewDependencies()
 	rootCmd := cli.NewRootCmd(deps)
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
 
 	if err := rootCmd.Execute(); err != nil {
+		utils.Error(err.Error())
 		return 1
 	}
 	return 0

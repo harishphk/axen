@@ -1,13 +1,16 @@
 package sources
 
 import (
-	"github.com/harishphk/axen/internal/utils"
 	"fmt"
 	"path/filepath"
+
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/utils"
 )
 
 func FetchLocal(dirPath string) (string, string, error) {
-	resolved, err := filepath.Abs(dirPath)
+	expanded := resolvers.ExpandTilde(dirPath)
+	resolved, err := filepath.Abs(expanded)
 	if err != nil {
 		return "", "", utils.NewSourceError("Failed to resolve absolute path", dirPath)
 	}
