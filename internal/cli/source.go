@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/models"
 	"github.com/harishphk/axen/internal/resolvers"
 	"github.com/harishphk/axen/internal/services"
 	"github.com/harishphk/axen/internal/utils"
@@ -33,12 +34,23 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 
 			name, _ := cmd.Flags().GetString("name")
 			installFlag, _ := cmd.Flags().GetBool("install")
+			updatePolicy, _ := cmd.Flags().GetString("update-policy")
+			if !cmd.Flags().Changed("update-policy") {
+				cfg, _ := core.ReadConfig()
+				if cfg.DefaultUpdatePolicy != "" {
+					updatePolicy = cfg.DefaultUpdatePolicy
+				}
+			}
+			if !models.IsValidUpdatePolicy(updatePolicy) {
+				return fmt.Errorf("invalid update policy %q (must be daily, weekly, or manual)", updatePolicy)
+			}
 
-			return runSourceAdd(cmd.Context(), deps, args[0], installFlag, name, "")
+			return runSourceAdd(cmd.Context(), deps, args[0], installFlag, name, updatePolicy)
 		},
 	}
 	addCmd.Flags().StringP("name", "n", "", "Custom name for the source namespace")
 	addCmd.Flags().BoolP("install", "i", false, "Install all skills immediately after adding the source")
+	addCmd.Flags().StringP("update-policy", "u", "daily", "Set the auto-update policy (daily, weekly, manual)")
 	cmd.AddCommand(addCmd)
 
 	listCmd := &cobra.Command{
@@ -67,6 +79,21 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 				IsSourceRemove: true,
 			}
 			return runRemove(cmd.Context(), deps, args[0], opts)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "policy <name> <daily|weekly|manual>",
+		Short: "Set the auto-update policy for a source",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			lock, err := AcquireProcessLock()
+			if err != nil {
+				return err
+			}
+			defer lock.Unlock()
+
+			return runSourcePolicy(cmd.Context(), args[0], args[1])
 		},
 	})
 
@@ -124,6 +151,21 @@ func runSourceAdd(ctx context.Context, deps *Dependencies, source string, instal
 		SkipFetchSpinner: true,
 	}
 	return runInstall(ctx, deps, namespaceName, opts)
+}
+
+func runSourcePolicy(ctx context.Context, namespaceName string, policy string) error {
+	if !models.IsValidUpdatePolicy(policy) {
+		return utils.NewAxenError(fmt.Sprintf("invalid policy %q (must be daily, weekly, or manual)", policy), "INVALID_POLICY")
+	}
+
+	svc := &services.SourceService{}
+	err := svc.SetPolicy(namespaceName, policy)
+	if err != nil {
+		return err
+	}
+
+	utils.Success("Set auto-update policy for %s to %s", pterm.Cyan(namespaceName), pterm.Green(policy))
+	return nil
 }
 
 func runSourceList() error {

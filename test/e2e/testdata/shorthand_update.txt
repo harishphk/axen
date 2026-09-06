@@ -1,0 +1,20 @@
+# Setup mock source
+mkdir mock-source/skill1
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill1": { "path": "skill1" }
+  }
+}
+-- mock-source/skill1/SKILL.md --
+# Skill 1
+
+# Test 1: Local relative paths are expanded to absolute in axen-lock.json
+exec axen source add ./mock-source
+exec grep '"source": ".*/mock-source"' $AXEN_TEST_HOME/.axen/axen-lock.json
+
+# Test 2: GitHub shorthands that don't exist fail with github shorthand error
+! exec axen source add nonexistentuser/nonexistentrepo
+stderr 'Failed to fetch shorthand from GitHub'

@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"strings"
+
+	"github.com/harishphk/axen/internal/core"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
@@ -15,6 +18,22 @@ func NewRootCmd(deps *Dependencies) *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			if verbose {
 				pterm.EnableDebugMessages()
+			}
+			
+			cmdPath := cmd.CommandPath()
+			// Only display update notifications for public-facing commands, not internal or config ones
+			if cmd.Name() != "_internal_check_updates" && cmd.Name() != "config" && !strings.HasPrefix(cmdPath, "axen config") {
+				core.CheckAndNotifyUpdates()
+			}
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			cmdPath := cmd.CommandPath()
+			// Only trigger background auto-updates after the foreground command completes and releases locks
+			// Don't trigger if the user ran internal, config, update, remove, upgrade, or install commands
+			if cmd.Name() != "_internal_check_updates" && cmd.Name() != "config" && !strings.HasPrefix(cmdPath, "axen config") {
+				if !strings.HasPrefix(cmdPath, "axen update") && !strings.HasPrefix(cmdPath, "axen remove") && !strings.HasPrefix(cmdPath, "axen upgrade") && !strings.HasPrefix(cmdPath, "axen install") {
+					core.TriggerOpportunisticUpdates(cmd.Context())
+				}
 			}
 		},
 	}
@@ -59,6 +78,24 @@ Use "{{StyleCommand .CommandPath}} [command] --help" for more information about 
 	cmd.AddCommand(NewCmdDoctor(deps))
 	cmd.AddCommand(NewCmdCreate(deps))
 	cmd.AddCommand(NewCmdInit(deps))
+	cmd.AddCommand(NewCmdUpgrade())
+	cmd.AddCommand(NewCmdConfig(deps))
+
+	// Hidden internal command for background update checking
+	internalCmd := &cobra.Command{
+		Use:    "_internal_check_updates",
+		Hidden: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			lock, err := TryAcquireProcessLock()
+			if err != nil {
+				return
+			}
+			defer lock.Unlock()
+
+			core.PerformBackgroundUpdateChecks()
+		},
+	}
+	cmd.AddCommand(internalCmd)
 
 	return cmd
 }
