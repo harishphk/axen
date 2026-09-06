@@ -5,6 +5,8 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X github.com/harishphk/axen/internal/core.Version={{.Tag}}
     goos:
       - linux
       - windows
