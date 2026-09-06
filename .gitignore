@@ -1,6 +1,7 @@
 # Binaries
 bin/
 /axen
+cmd/axen/axen
 *.exe
 *.exe~
 *.dll

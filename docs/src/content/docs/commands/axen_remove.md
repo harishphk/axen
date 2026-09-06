@@ -13,8 +13,9 @@ axen remove [namespace] [flags]
 
 ### Options
 
+```
   -a, --all              Remove the entire repository and all its skills
-  -b, --bundle strings   Comma-separated list of bundles to remove
+  -b, --bundle strings   Comma-separated list of specific bundles to remove
   -d, --dry-run          Preview changes without executing
   -e, --exclude          Automatically add removed skills to the exclude list (bypasses prompt)
   -h, --help             help for remove

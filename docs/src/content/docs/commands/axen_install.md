@@ -5,7 +5,7 @@ description: Reference for axen install
 
 ## axen install
 
-Install skills from a registered source or local directory
+Install skills from a local path or git repository
 
 ```
 axen install [namespace] [flags]
@@ -13,14 +13,15 @@ axen install [namespace] [flags]
 
 ### Options
 
-  -a, --all                        Install all skills, bypassing interactive prompt
-  -b, --bundle strings             Comma-separated list of bundles to install
+```
+  -a, --all                        Install/Sync all skills from the manifest
+  -b, --bundle strings             Comma-separated list of skill bundles to install
   -c, --conflict-strategy string   Conflict resolution strategy: prompt, overwrite, keep (default "prompt")
   -d, --dry-run                    Preview changes without executing
-  -f, --force                      Overwrite existing skills on conflict
+  -f, --force                      Overwrite existing skills
   -h, --help                       help for install
   -s, --skills strings             Comma-separated list of specific skills to install
-  -t, --targets strings            Comma-separated list of targets to install into
+  -t, --targets strings            Comma-separated list of target directories to install into
 ```
 
 ### Options inherited from parent commands

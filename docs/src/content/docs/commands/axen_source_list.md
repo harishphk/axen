@@ -25,5 +25,5 @@ axen source list [flags]
 
 ### SEE ALSO
 
-* [axen source](axen_source.md)	 - Manage skill repositories (sources)
+* [axen source](axen_source.md)	 - Manage skill sources (add, remove, list)
 
