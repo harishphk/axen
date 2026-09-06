@@ -12,6 +12,7 @@ func NewRootCmd(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "axen",
 		Short:         "Axen - A minimal skill manager for AI agents",
+		Version:       core.Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {

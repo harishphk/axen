@@ -218,6 +218,10 @@ type githubRelease struct {
 }
 
 func checkForCliUpdate(cache *models.UpdateCache) bool {
+	if Version == "dev" {
+		return false
+	}
+
 	if !shouldCheckDaily(cache.CliUpdate.LastCheckedAt) {
 		return false
 	}
