@@ -467,10 +467,12 @@ func InstallSkills(
 		if firstErr != nil {
 			utils.Warn("Installation failed. Rolling back changes...")
 
-			// 1. Delete newly installed folders
-			for _, d := range successfulCopies {
-				if utils.PathExists(d.Path) {
-					_ = utils.RemoveDir(d.Path)
+			// 1. Clean all destination directories touched in this run
+			for _, result := range results {
+				for _, dest := range result.Destinations {
+					if utils.PathExists(dest.Path) {
+						_ = utils.RemoveDir(dest.Path)
+					}
 				}
 			}
 
@@ -494,6 +496,10 @@ func InstallSkills(
 func UninstallSkillFromTargets(skillName string, targets []string, dryRun bool) ([]Destination, error) {
 	if skillName == "" || skillName == "." || skillName == ".." || strings.Contains(skillName, "/") || strings.Contains(skillName, "\\") {
 		return nil, fmt.Errorf("critical safety error: Invalid skill name %q prevents destructive operations", skillName)
+	}
+
+	if len(targets) == 0 {
+		targets = resolvers.GetDetectedTargets()
 	}
 
 	var removed []Destination
@@ -554,6 +560,9 @@ func PruneSkills(
 		oldTargets := oldInfo.Targets
 		if len(oldTargets) == 0 {
 			oldTargets = oldNamespaceTargets
+		}
+		if len(oldTargets) == 0 {
+			oldTargets = resolvers.GetDetectedTargets()
 		}
 
 		if !exists {

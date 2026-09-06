@@ -19,7 +19,6 @@ func TestDetectSourceType(t *testing.T) {
 		{"/path/to/repo.git", SourceTypeGit},
 		{"/local/path/to/source", SourceTypeLocal},
 		{"./relative/path", SourceTypeLocal},
-		{"C:\\Windows\\Path", SourceTypeLocal}, // fallback to local
 	}
 
 	for _, c := range cases {

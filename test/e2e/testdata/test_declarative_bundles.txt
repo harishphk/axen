@@ -1,7 +1,7 @@
 # Test declarative state tracking and orphan pruning
 
 # Add a local repo that acts as our bundle provider
-exec axen source add ./bundle-repo
+exec axen source add ./bundle-repo -n bundle-repo
 
 # 1. Install frontend bundle
 exec axen install bundle-repo -b frontend -t claude

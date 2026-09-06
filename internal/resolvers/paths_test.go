@@ -47,7 +47,7 @@ func TestDirPaths(t *testing.T) {
 	if GetLockfilePath() != filepath.Join(base, "axen-lock.json") {
 		t.Errorf("GetLockfilePath fail")
 	}
-	if GetConfigPath() != filepath.Join(base, "axen-config.json") {
+	if GetConfigPath() != filepath.Join(base, "config.json") {
 		t.Errorf("GetConfigPath fail")
 	}
 	if GetSourcesDir() != filepath.Join(base, "sources") {
@@ -75,8 +75,8 @@ func TestDeriveNamespace(t *testing.T) {
 		{"https://github.com", "github.com"},
 		{"https://github.com:port", "port"},
 		{"https://", ""},
-		{"/local/path/to/skill", "skill"},
-		{"../relative/skill", "skill"},
+		{"/local/path/to/skill", "to__skill"},
+		{"../relative/skill", "relative__skill"},
 		{"http://test:", ""},
 	}
 

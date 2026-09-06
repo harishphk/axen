@@ -1,11 +1,15 @@
 package cli
 
 import (
-	"github.com/harishphk/axen/internal/core"
-	"github.com/harishphk/axen/internal/ui"
-	"github.com/harishphk/axen/internal/utils"
 	"context"
 	"fmt"
+	"sort"
+
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/services"
+	"github.com/harishphk/axen/internal/ui"
+	"github.com/harishphk/axen/internal/utils"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -25,6 +29,9 @@ func NewCmdUpdate(deps *Dependencies) *cobra.Command {
 
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			conflictStrategy, _ := cmd.Flags().GetString("conflict-strategy")
+			if !models.IsValidConflictStrategy(conflictStrategy) {
+				return fmt.Errorf("invalid conflict strategy %q (must be prompt, overwrite, or keep)", conflictStrategy)
+			}
 
 			namespaceName := ""
 			if len(args) > 0 {
@@ -61,20 +68,34 @@ func runUpdate(ctx context.Context, deps *Dependencies, targetNs string, dryRun 
 		for ns := range lockfile.Namespaces {
 			toUpdate = append(toUpdate, ns)
 		}
+		sort.Strings(toUpdate)
 	}
 
 	totalUpdated := 0
 	totalUnchanged := 0
 	failedCount := 0
+	var warnings []string
+
+	svc := &services.InstallService{}
 
 	for _, nsName := range toUpdate {
-		spinner, _ := utils.StartSpinner("Updating " + nsName + "...")
 		nsEntry := lockfile.Namespaces[nsName]
 
-		fetchResult, manifest, err := core.FetchAndResolve(ctx, nsEntry.Source, nsName)
+		var spinner *pterm.SpinnerPrinter
+		fetchOpts := services.FetchOptions{
+			OnFetchStart: func(ns string) {
+				spinner, _ = utils.StartSpinner("Updating " + ns + "...")
+			},
+			OnFetchDone: func(ns string, err error) {
+				if err != nil {
+					spinner.Warning(err.Error())
+					warnings = append(warnings, fmt.Sprintf("%s: %v", nsName, err))
+				}
+			},
+		}
+
+		fetchResult, manifest, err := svc.FetchManifest(ctx, nsEntry.Source, nsName, fetchOpts)
 		if err != nil {
-			spinner.Fail(err.Error())
-			failedCount++
 			continue
 		}
 
@@ -84,17 +105,21 @@ func runUpdate(ctx context.Context, deps *Dependencies, targetNs string, dryRun 
 			continue
 		}
 
-		intent := core.GetIntent(lockfile, nsName)
-
-		result, err := core.Reconcile(ctx, lockfile, nsName, nsEntry.Source, fetchResult, manifest, intent, core.ReconcileOpts{
+		req := services.InstallRequest{
+			NamespaceName:    nsName,
+			SourceURL:        nsEntry.Source,
+			FetchResult:      fetchResult,
+			Manifest:         manifest,
+			UpdateMode:       true,
 			Force:            true,
 			DryRun:           dryRun,
-			UpdateMode:       true,
 			ConflictStrategy: conflictStrategy,
 			ConflictResolver: func(skillName string, candidates []core.ConflictCandidate) (string, error) {
 				return ui.PromptConflictResolution(deps.Prompter, skillName, candidates)
 			},
-		})
+		}
+
+		result, err := svc.Install(ctx, req)
 		if err != nil {
 			spinner.Fail(err.Error())
 			failedCount++
@@ -114,5 +139,13 @@ func runUpdate(ctx context.Context, deps *Dependencies, targetNs string, dryRun 
 	if failedCount > 0 {
 		return fmt.Errorf("%d namespace(s) failed to update", failedCount)
 	}
+
+	if len(warnings) > 0 {
+		fmt.Println()
+		for _, w := range warnings {
+			utils.Warn(w)
+		}
+	}
+
 	return nil
 }

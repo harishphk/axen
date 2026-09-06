@@ -4,7 +4,7 @@ env TARGET3=$WORK/.cursor/skills
 env SRC=$WORK/source
 
 # Install specific targets
-exec axen source add $SRC
+exec axen source add $SRC -n source
 exec axen install source --all --targets=codex,cursor
 exists $TARGET1/skill_a/SKILL.md
 ! exists $TARGET3/skill_a/SKILL.md
@@ -14,7 +14,7 @@ exists $TARGET3/skill_b/SKILL.md
 # Install all (using local config targets from targets config inside axen, wait test environment might not have targets setup.
 # Actually, the targets are already defined in resolvers for axen.
 # 'all detected targets' requires axen to detect them. We can just test --targets instead.
-exec axen source add $SRC
+exec axen source add $SRC -n source
 exec axen install source --all --targets=codex,cursor,windsurf
 exists $TARGET1/skill_a/SKILL.md
 exists $TARGET3/skill_b/SKILL.md

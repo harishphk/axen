@@ -1,0 +1,44 @@
+# Setup source repo
+mkdir source/skill_a
+mkdir source/skill_b
+
+-- source/skill_a/SKILL.md --
+---
+name: skill_a
+description: Skill A from Source
+---
+# Source Repo File
+
+-- source/skill_b/SKILL.md --
+---
+name: skill_b
+description: Skill B from Source
+---
+# Skill B from Source
+
+-- source/axen.json --
+{
+  "axen_version": "1",
+  "name": "source",
+  "skills": {
+    "skill_a": { "path": "skill_a" },
+    "skill_b": { "path": "skill_b" }
+  }
+}
+
+# 1. Setup pre-existing untracked file
+-- .claude/skills/skill_a/SKILL.md --
+# Original Manual File
+
+# 2. Test conflict-strategy=keep preserves manual file
+exec axen source add ./source -n source
+exec axen install source --skills=skill_a --targets=claude --conflict-strategy=keep
+grep '# Original Manual File' .claude/skills/skill_a/SKILL.md
+
+# 3. Test conflict-strategy=overwrite replaces manual file
+exec axen install source --skills=skill_a --targets=claude --conflict-strategy=overwrite
+grep '# Source Repo File' .claude/skills/skill_a/SKILL.md
+
+# 4. Test --dry-run does not write new skill files to disk
+exec axen install source --skills=skill_b --targets=claude --dry-run
+! exists .claude/skills/skill_b/SKILL.md

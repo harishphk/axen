@@ -26,12 +26,6 @@ func ValidateFrontmatter(f *Frontmatter) error {
 	if f.Description == "" {
 		return fmt.Errorf("frontmatter: description is required")
 	}
-	if len(f.Description) > 1024 {
-		return fmt.Errorf("frontmatter: description must be at most 1024 characters, got %d", len(f.Description))
-	}
-	if f.Compatibility != "" && len(f.Compatibility) > 500 {
-		return fmt.Errorf("frontmatter: compatibility must be at most 500 characters, got %d", len(f.Compatibility))
-	}
 	return nil
 }
 

@@ -1,11 +1,11 @@
 package resolvers
 
 import (
-	"github.com/harishphk/axen/internal/models"
-	"github.com/harishphk/axen/internal/utils"
 	"path/filepath"
 	"sort"
-	"strings"
+
+	"github.com/harishphk/axen/internal/models"
+	"github.com/harishphk/axen/internal/utils"
 )
 
 var cachedTargetPaths map[string]string
@@ -25,7 +25,7 @@ func GetTargetPaths() map[string]string {
 	if utils.PathExists(configPath) {
 		config, err := utils.ReadJson[models.Config](configPath)
 		if err != nil {
-			utils.Warn("Failed to parse axen-config.json, using defaults")
+			utils.Warn("Failed to parse config.json, using defaults")
 		} else {
 			for k, v := range config.Targets {
 				targets[k] = v
@@ -64,9 +64,9 @@ func GetDetectedTargets() []string {
 	targets := GetTargetPaths()
 	var detected []string
 	for name, path := range targets {
-		expanded := ExpandTilde(path)
-		// Strip the trailing "skills/" (or last segment) to get the parent agent dir
-		parentDir := filepath.Dir(strings.TrimSuffix(expanded, "/"))
+		expanded := filepath.Clean(ExpandTilde(path))
+		// Get the parent agent dir (e.g. ~/.cursor from ~/.cursor/skills)
+		parentDir := filepath.Dir(expanded)
 		if utils.PathExists(parentDir) {
 			detected = append(detected, name)
 		}

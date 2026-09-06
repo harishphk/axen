@@ -93,12 +93,22 @@ func NewCmdCreate(deps *Dependencies) *cobra.Command {
 					}
 				}
 			} else {
-				_ = utils.EnsureDir(outputDir)
-				_ = utils.EnsureDir(filepath.Join(outputDir, "scripts"))
-				_ = utils.EnsureDir(filepath.Join(outputDir, "references"))
-				_ = utils.EnsureDir(filepath.Join(outputDir, "assets"))
+				if err := utils.EnsureDir(outputDir); err != nil {
+					return err
+				}
+				if err := utils.EnsureDir(filepath.Join(outputDir, "scripts")); err != nil {
+					return err
+				}
+				if err := utils.EnsureDir(filepath.Join(outputDir, "references")); err != nil {
+					return err
+				}
+				if err := utils.EnsureDir(filepath.Join(outputDir, "assets")); err != nil {
+					return err
+				}
 
-				_ = os.WriteFile(filepath.Join(outputDir, "SKILL.md"), []byte(defaultSkillMd(name)), 0644)
+				if err := os.WriteFile(filepath.Join(outputDir, "SKILL.md"), []byte(defaultSkillMd(name)), 0644); err != nil {
+					return err
+				}
 			}
 
 			utils.Success("Created skill: %s/", pterm.Bold.Sprint(name))

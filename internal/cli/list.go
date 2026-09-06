@@ -15,6 +15,7 @@ func NewCmdList(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Display all installed skills",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lockfile, err := core.ReadLockfile()
 			if err != nil {

@@ -619,3 +619,44 @@ func normalizeNil(s []string) []string {
 	}
 	return s
 }
+
+func TestPersistState_PreservesPolicyAndNilManifest(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("AXEN_TEST_HOME", tmpDir)
+
+	lockfile := models.NewLockfile()
+	lockfile.Namespaces["my-ns"] = models.NamespaceEntry{
+		Source:        "https://github.com/example/skills.git",
+		Type:          "git",
+		UpdatePolicy:  "weekly",
+		LastCheckedAt: "2026-08-01T12:00:00Z",
+		Targets:       []string{"claude"},
+		Skills: models.NamespaceSkills{
+			Installed: map[string]models.LockfileSkill{
+				"old-skill": {Targets: []string{"claude"}},
+			},
+		},
+	}
+
+	resolved := ResolvedState{
+		Intent: Intent{Targets: []string{"claude"}},
+	}
+	installResults := []InstallResult{
+		{SkillName: "new-skill", Status: "installed", Destinations: []Destination{{Target: "claude"}}},
+	}
+
+	// Should not panic even if manifest is nil
+	persistState(lockfile, "my-ns", "https://github.com/example/skills.git", nil, nil, resolved, installResults, nil, lockfile.Namespaces["my-ns"].Skills.Installed)
+
+	entry := lockfile.Namespaces["my-ns"]
+	if entry.UpdatePolicy != "weekly" {
+		t.Errorf("expected UpdatePolicy to be preserved as 'weekly', got %q", entry.UpdatePolicy)
+	}
+	if entry.LastCheckedAt != "2026-08-01T12:00:00Z" {
+		t.Errorf("expected LastCheckedAt to be preserved as '2026-08-01T12:00:00Z', got %q", entry.LastCheckedAt)
+	}
+	if _, ok := entry.Skills.Installed["new-skill"]; !ok {
+		t.Errorf("expected new-skill to be in Installed map")
+	}
+}
+

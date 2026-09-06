@@ -18,7 +18,7 @@ func GetHomeDir() string {
 var pathSeparatorRegex = regexp.MustCompile(`[/\\]`)
 
 func ExpandTilde(p string) string {
-	if strings.HasPrefix(p, "~/") || p == "~" {
+	if strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~\\") || p == "~" {
 		return filepath.Join(GetHomeDir(), p[1:])
 	}
 	return p
@@ -32,12 +32,16 @@ func GetLockfilePath() string {
 	return filepath.Join(GetAxenDir(), "axen-lock.json")
 }
 
+func GetUpdateCachePath() string {
+	return filepath.Join(GetAxenDir(), "update-cache.json")
+}
+
 func GetProcessLockPath() string {
 	return filepath.Join(GetAxenDir(), "axen.lock")
 }
 
 func GetConfigPath() string {
-	return filepath.Join(GetAxenDir(), "axen-config.json")
+	return filepath.Join(GetAxenDir(), "config.json")
 }
 
 func GetSourcesDir() string {
@@ -82,5 +86,14 @@ func DeriveNamespace(source string) string {
 	if err != nil {
 		return "local-skill"
 	}
-	return filepath.Base(absolutePath)
+	
+	dir := filepath.Dir(absolutePath)
+	base := filepath.Base(absolutePath)
+	
+	parent := filepath.Base(dir)
+	if parent != "" && parent != "." && parent != string(filepath.Separator) {
+		return parent + "__" + base
+	}
+	
+	return base
 }

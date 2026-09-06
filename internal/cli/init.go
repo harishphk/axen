@@ -12,11 +12,18 @@ import (
 
 func NewCmdInit(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init",
+		Use:   "init [dir]",
 		Short: "Scan for skills and generate/update axen.json",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			dirStr, _ := cmd.Flags().GetString("dir")
+			if len(args) > 0 {
+				dirStr = args[0]
+			}
+			if dirStr == "" {
+				dirStr = "."
+			}
 
 			dir, err := filepath.Abs(dirStr)
 			if err != nil {

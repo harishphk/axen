@@ -1,0 +1,43 @@
+# 1. When no sources/skills exist, list warns
+exec axen list
+stdout 'No skills installed'
+
+# 2. Setup mock source repository
+mkdir mock-source/skill1
+mkdir mock-source/skill2
+
+-- mock-source/skill1/SKILL.md --
+---
+name: skill1
+description: Skill 1
+---
+# Skill 1
+
+-- mock-source/skill2/SKILL.md --
+---
+name: skill2
+description: Skill 2
+---
+# Skill 2
+
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill1": { "path": "skill1" },
+    "skill2": { "path": "skill2" }
+  }
+}
+
+# 3. Add source and install skills
+exec axen source add ./mock-source -n my-skills --install
+exists $AXEN_TEST_HOME/.claude/skills/skill1/SKILL.md
+exists $AXEN_TEST_HOME/.claude/skills/skill2/SKILL.md
+
+# 4. Assert list output shows installed skills and totals
+exec axen list
+stdout 'my-skills'
+stdout 'skill1'
+stdout 'skill2'
+stdout '2 skill\(s\) installed across 1 source\(s\)'

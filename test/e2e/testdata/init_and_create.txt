@@ -1,0 +1,30 @@
+# 1. Test axen create in current directory
+exec axen create first-skill
+exists first-skill/SKILL.md
+grep 'name: first-skill' first-skill/SKILL.md
+grep 'description:' first-skill/SKILL.md
+
+# 2. Test axen create in custom directory using --dir
+exec axen create second-skill --dir ./custom-folder
+exists custom-folder/second-skill/SKILL.md
+grep 'name: second-skill' custom-folder/second-skill/SKILL.md
+
+# 3. Test axen init scans discovered skills and creates axen.json
+exec axen init
+exists axen.json
+grep '"name":' axen.json
+grep '"first-skill":' axen.json
+
+# 4. Test axen init in a specified directory
+mkdir nested-dir/nested-skill
+-- nested-dir/nested-skill/SKILL.md --
+---
+name: nested-skill
+description: Nested Skill
+---
+# Nested
+
+exec axen init ./nested-dir
+exists nested-dir/axen.json
+grep '"name": "nested-dir"' nested-dir/axen.json
+grep '"nested-skill":' nested-dir/axen.json

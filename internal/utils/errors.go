@@ -35,3 +35,5 @@ func NewSourceError(msg, source string) *AxenError {
 func NewFileSystemError(msg, path string) *AxenError {
 	return &AxenError{Message: fmt.Sprintf("%s (path: %s)", msg, path), Code: "FS_ERROR"}
 }
+
+

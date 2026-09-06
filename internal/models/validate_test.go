@@ -56,16 +56,7 @@ func TestValidateFrontmatter(t *testing.T) {
 			fm:      Frontmatter{Name: "skill", Description: ""},
 			wantErr: "description is required",
 		},
-		{
-			name:    "description too long",
-			fm:      Frontmatter{Name: "skill", Description: strings.Repeat("a", 1025)},
-			wantErr: "at most 1024 characters",
-		},
-		{
-			name:    "compatibility too long",
-			fm:      Frontmatter{Name: "skill", Description: "desc", Compatibility: strings.Repeat("a", 501)},
-			wantErr: "at most 500 characters",
-		},
+
 		{
 			name:    "single char name",
 			fm:      Frontmatter{Name: "a", Description: "desc"},

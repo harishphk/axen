@@ -1,13 +1,14 @@
 package cli
 
 import (
-	"github.com/harishphk/axen/internal/core"
-	"github.com/harishphk/axen/internal/models"
-	"github.com/harishphk/axen/internal/resolvers"
-	"github.com/harishphk/axen/internal/utils"
 	"context"
 	"fmt"
-	"time"
+	"sort"
+
+	"github.com/harishphk/axen/internal/core"
+	"github.com/harishphk/axen/internal/resolvers"
+	"github.com/harishphk/axen/internal/services"
+	"github.com/harishphk/axen/internal/utils"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -16,12 +17,12 @@ import (
 func NewCmdSource(deps *Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "source",
-		Short: "Manage skill repositories (sources)",
+		Short: "Manage skill sources (add, remove, list)",
 	}
 
 	addCmd := &cobra.Command{
-		Use:   "add [url|path]",
-		Short: "Add a skill repository to your local registry",
+		Use:   "add <source>",
+		Short: "Add a new source (GitHub repo or local path)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lock, err := AcquireProcessLock()
@@ -30,13 +31,15 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 			}
 			defer lock.Unlock()
 
+			name, _ := cmd.Flags().GetString("name")
 			installFlag, _ := cmd.Flags().GetBool("install")
-			nameFlag, _ := cmd.Flags().GetString("name")
-			return runSourceAdd(cmd.Context(), deps, args[0], installFlag, nameFlag)
+
+			return runSourceAdd(cmd.Context(), deps, args[0], installFlag, name, "")
 		},
 	}
+	addCmd.Flags().StringP("name", "n", "", "Custom name for the source namespace")
 	addCmd.Flags().BoolP("install", "i", false, "Install all skills immediately after adding the source")
-	addCmd.Flags().StringP("name", "n", "", "Override the auto-derived namespace name")
+	cmd.AddCommand(addCmd)
 
 	listCmd := &cobra.Command{
 		Use:   "list",
@@ -46,11 +49,12 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 			return runSourceList()
 		},
 	}
+	cmd.AddCommand(listCmd)
 
-	removeCmd := &cobra.Command{
-		Use:   "remove [namespace]",
-		Short: "Remove a source repository and all its skills",
-		Args:  cobra.MaximumNArgs(1),
+	cmd.AddCommand(&cobra.Command{
+		Use:   "remove <name>",
+		Short: "Remove a source and all its installed skills",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lock, err := AcquireProcessLock()
 			if err != nil {
@@ -58,20 +62,68 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 			}
 			defer lock.Unlock()
 
-			ns := ""
-			if len(args) > 0 {
-				ns = args[0]
-			}
 			opts := RunRemoveOptions{
 				All:            true,
 				IsSourceRemove: true,
 			}
-			return runRemove(cmd.Context(), deps, ns, opts)
+			return runRemove(cmd.Context(), deps, args[0], opts)
+		},
+	})
+
+	return cmd
+}
+
+func runSourceAdd(ctx context.Context, deps *Dependencies, source string, installFlag bool, customName string, updatePolicy string) error {
+	namespaceName := customName
+	if namespaceName == "" {
+		namespaceName = resolvers.DeriveNamespace(source)
+	}
+
+	installSvc := &services.InstallService{}
+	
+	var spinner *pterm.SpinnerPrinter
+	fetchOpts := services.FetchOptions{
+		OnFetchStart: func(ns string) {
+			spinner, _ = utils.StartSpinner("Fetching " + source + "...")
+		},
+		OnFetchDone: func(ns string, err error) {
+			if err != nil {
+				spinner.Fail("Failed to fetch")
+			}
 		},
 	}
 
-	cmd.AddCommand(addCmd, listCmd, removeCmd)
-	return cmd
+	fetchResult, manifest, err := installSvc.FetchManifest(ctx, source, namespaceName, fetchOpts)
+	if err != nil {
+		return err
+	}
+	if spinner != nil {
+		spinner.Success(fmt.Sprintf("Fetched %s (%s)", namespaceName, fetchResult.ResolvedSource))
+	}
+
+	sourceSvc := &services.SourceService{}
+	err = sourceSvc.Add(services.SourceAddRequest{
+		NamespaceName: namespaceName,
+		SourceURL:     fetchResult.ResolvedSource,
+		SourceType:    string(fetchResult.Type),
+		Ref:           fetchResult.Ref,
+		UpdatePolicy:  updatePolicy,
+		Targets:       manifest.Targets,
+		Manifest:      manifest,
+	})
+	if err != nil {
+		return err
+	}
+
+	utils.Success("Successfully added source %s!", pterm.Cyan(namespaceName))
+
+	// Chain into the interactive installer
+	opts := RunInstallOptions{
+		AllSkills:        installFlag,
+		SkipAutoDetect:   false,
+		SkipFetchSpinner: true,
+	}
+	return runInstall(ctx, deps, namespaceName, opts)
 }
 
 func runSourceList() error {
@@ -89,7 +141,14 @@ func runSourceList() error {
 		{"Namespace", "Source", "Type", "Installed Skills"},
 	}
 
-	for name, entry := range lockfile.Namespaces {
+	var names []string
+	for name := range lockfile.Namespaces {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		entry := lockfile.Namespaces[name]
 		installedCount := len(entry.Skills.Installed)
 		tableData = append(tableData, []string{
 			name,
@@ -101,49 +160,4 @@ func runSourceList() error {
 
 	_ = pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
 	return nil
-}
-
-func runSourceAdd(ctx context.Context, deps *Dependencies, source string, installFlag bool, customName string) error {
-	namespaceName := customName
-	if namespaceName == "" {
-		namespaceName = resolvers.DeriveNamespace(source)
-	}
-
-	spinner, _ := utils.StartSpinner("Fetching " + source + "...")
-	fetchResult, manifest, err := core.FetchAndResolve(ctx, source, namespaceName)
-	if err != nil {
-		spinner.Fail(err.Error())
-		return err
-	}
-	spinner.Success("Fetched " + namespaceName)
-
-	lockfile, _ := core.ReadLockfile()
-	if _, exists := lockfile.Namespaces[namespaceName]; !exists {
-		lockfile.Namespaces[namespaceName] = models.NamespaceEntry{
-			Type:      string(fetchResult.Type),
-			Source:    source,
-			Ref:       fetchResult.Ref,
-			UpdatedAt: time.Now().UTC().Format(time.RFC3339),
-			Targets:   manifest.Targets,
-			Skills: models.NamespaceSkills{
-				Installed: make(map[string]models.LockfileSkill),
-			},
-		}
-		_ = core.WriteLockfile(lockfile)
-	}
-
-	// Update sources cache
-	cache, _ := core.ReadSourcesIndex()
-	cacheNs := models.CacheNamespace{Available: make(map[string]models.AvailableSkill)}
-	for skillName, entry := range manifest.Skills {
-		cacheNs.Available[skillName] = models.AvailableSkill{Path: entry.Path, Version: entry.Version}
-	}
-	cache.Namespaces[namespaceName] = cacheNs
-	_ = core.WriteSourcesIndex(cache)
-
-	utils.Success("Successfully added source %s!", pterm.Cyan(namespaceName))
-
-	// Chain into the interactive installer
-	opts := RunInstallOptions{AllSkills: installFlag, SkipAutoDetect: !installFlag}
-	return runInstall(ctx, deps, namespaceName, opts)
 }
