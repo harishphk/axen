@@ -1,0 +1,42 @@
+# Setup mock source repository
+mkdir mock-source/skill_a
+-- mock-source/skill_a/SKILL.md --
+---
+name: skill_a
+description: Skill A
+---
+# Skill A
+
+-- mock-source/axen.json --
+{
+  "axen_version": "1",
+  "name": "mock-source",
+  "skills": {
+    "skill_a": { "path": "skill_a" }
+  }
+}
+
+# 1. Add source
+exec axen source add ./mock-source -n my-source --install
+exists $AXEN_TEST_HOME/.claude/skills/skill_a/SKILL.md
+
+# 2. List sources and check output
+exec axen source list
+stdout 'my-source'
+
+# 3. Change update policy to weekly
+exec axen source policy my-source weekly
+grep '"update_policy": "weekly"' $AXEN_TEST_HOME/.axen/axen-lock.json
+
+# 4. Reject invalid update policy
+! exec axen source policy my-source invalid
+stderr 'invalid policy'
+
+# 5. Remove source and its installed skills
+exec axen source remove my-source
+! exists $AXEN_TEST_HOME/.claude/skills/skill_a/SKILL.md
+
+# 6. Verify list is now empty
+exec axen source list
+stdout 'No sources registered'
+! grep '"my-source"' $AXEN_TEST_HOME/.axen/axen-lock.json

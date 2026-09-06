@@ -12,16 +12,9 @@
 
 Axen allows you to subscribe to multiple skill registries (sources like Git repositories, local directories, or HTTP URLs) and deploy them automatically to the configuration folders of 60+ AI assistants (targets like Cursor, Windsurf, Roo Code, and more).
 
-```bash
-# 1. Install Axen (macOS & Linux)
-curl -fsSL https://raw.githubusercontent.com/harishphk/axen/main/install.sh | sh
 
-# 2. Add a skill registry (using GitHub shorthand or full URL)
-axen source add example/agent-skills
-
-# 3. Deploy to all your editors automatically
-axen install
-```
+![Axen CLI Demo](docs/assets/demo.gif)
+*(Placeholder for CLI Demo)*
 
 ---
 
@@ -61,9 +54,9 @@ Axen is a CLI tool that acts as a decentralized package manager for AI Agent Ski
 *   **⚡ Multi-Source Support**: Fetch and install skills directly from remote Git repositories, local directories, or HTTP URLs. Add multiple sources to aggregate registries.
 *   **⚙️ Config-Based Tracking**: Axen maintains state through a declarative `axen.json` manifest and an `axen-lock.json` lockfile. This ensures repeatable, idempotent installations and easy configuration sharing.
 *   **🔍 Intelligent Auto-Detection**: Automatically resolves installation paths across Windows, macOS, and Linux for Cursor, Windsurf, Roo Code, and 60+ other AI agents. No path configuration needed.
-*   **🔄 Single-Command Updates**: Keep all your installed skills up to date. Running `axen update` fetches the latest upstream changes, deploys them, and prunes orphaned files.
+*   **🔄 Opportunistic Auto-Updates**: Keep your installed skills up to date automatically. Sources can be configured for automatic background sync (`daily`, `weekly`) or explicit updates (`manual`).
 *   **🛠 Skill Scaffolding**: Use `axen create <name>` to instantly scaffold a new skill package with a standardized layout (`SKILL.md`, `scripts/`, `references/`) ready to share.
-*   **🎛 Granular Control & Conflict Resolution**: Choose exactly which skills go to which targets using `--skills` and `--targets` flags, and handle source overlaps gracefully with interactive conflict prompts.
+*   **🎛 Granular Control & Conflict Resolution**: Choose exactly which skills go to which targets using `--skills` and `--targets` flags, and handle source overlaps gracefully with interactive conflict prompts or automated strategies (`--conflict-strategy=prompt|overwrite|keep`).
 *   **🧪 Safe Previews**: Support for `--dry-run` across all destructive commands (`install`, `remove`, `update`) to let you preview exactly which files will be added or deleted.
 *   **🩺 Built-in Diagnostics**: Run `axen doctor` to instantly check folder permissions, lockfile integrity, and identify orphaned skill directories in your environment.
 
@@ -85,6 +78,28 @@ Axen natively maps paths for **60+ AI tools** across Unix/macOS and Windows, sor
 *   **Block Goose** (`.config/goose/skills/`)
 
 👉 *For the complete list of all 60+ targets and their exact system paths, see the [Supported AI Tools Documentation](https://axen.domains.workers.dev/reference/supported-tools).*
+
+---
+
+## ⌨️ CLI Reference
+
+Axen provides a simple, memorable command structure:
+
+| Command | Description |
+|---|---|
+| `axen source add <url>` | Add a remote/local skill repository to your registry. |
+| `axen source list` | List all registered sources and their installed skill counts. |
+| `axen source remove <ns>` | Remove a source and instantly prune all its deployed skills. |
+| `axen source policy <ns> <policy>`| Change the auto-update policy (`daily`, `weekly`, `manual`) for a source. |
+| `axen install [ns]` | Deploy all skills from sources to your AI editors. |
+| `axen remove [ns]` | Uninstall specific skills or bundles from your editors. |
+| `axen update [ns]` | Force a manual synchronization of all installed skills. |
+| `axen upgrade` | Upgrade the Axen CLI itself to the latest version. |
+| `axen init` | Initialize a new `axen.json` manifest in the current directory. |
+| `axen create <name>` | Scaffold a new skill folder with templates and structure. |
+| `axen config` | Launch an interactive menu to manage global Axen settings. |
+| `axen completion <shell>` | Generate auto-completion scripts for your shell. |
+| `axen doctor` | Run diagnostics to detect orphaned skills or broken paths. |
 
 ---
 
@@ -125,8 +140,9 @@ Get started using Axen to download and manage AI agent skills in under 30 second
 ### 1. Add a Skill Source
 Add a remote git repository containing agent skills to your local registry. You can use the full URL or a GitHub shorthand (`owner/repo`):
 ```bash
-axen source add example/agent-skills
+axen source add example/agent-skills --update-policy=daily
 ```
+*Note: The `--update-policy` determines how often Axen pulls updates. Options are `daily` (default), `weekly`, or `manual`.*
 
 ### 2. Install Skills
 Install skills into your detected AI agent targets. Axen will automatically detect which editors (Cursor, Windsurf, etc.) you have installed:
@@ -142,10 +158,29 @@ axen list
 ```
 
 ### 4. Sync & Update
-Keep all your installed prompt libraries up to date with upstream changes:
+Keep all your installed prompt libraries up to date manually with upstream changes:
 ```bash
 axen update
 ```
+
+### 5. Silent Background Updates
+Axen includes a completely invisible, non-blocking background auto-updater:
+*   **Skill Updates**: Depending on a source's update policy (`daily`, `weekly`), Axen will silently fetch and install new skill updates in a detached background process while you work. When it finishes, it leaves a simple success note (`✨ Auto-updated [skill] in the background`) the next time you use the CLI. For sources configured as `manual`, Axen never queries the network in the background; updates are only pulled when you explicitly run `axen update`.
+*   **CLI Updates**: Axen also checks for updates to itself once every 24 hours. If a new version is released, it notifies you so you can instantly upgrade by running `axen upgrade`.
+
+### 6. Configuration
+Axen can be configured via a seamless interactive UI. Just run:
+```bash
+axen config
+```
+From here you can toggle background CLI updates and manage your default skill update policies. You can also bypass the UI in scripts (e.g. `axen config set check_for_updates false`).
+
+### 7. Auto-Completion (Optional)
+Axen supports full tab auto-completion for your shell!
+*   **Zsh**: `axen completion zsh > ~/.axen_completion && echo "source ~/.axen_completion" >> ~/.zshrc`
+*   **Bash**: `axen completion bash > ~/.axen_completion && echo "source ~/.axen_completion" >> ~/.bashrc`
+*   **Fish**: `axen completion fish > ~/.config/fish/completions/axen.fish`
+*   **PowerShell**: `axen completion powershell | Out-String | Invoke-Expression`
 
 ---
 

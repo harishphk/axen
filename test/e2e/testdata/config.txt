@@ -1,0 +1,28 @@
+# Test default config values
+exec axen config get check_for_updates
+stdout 'true'
+
+exec axen config get default_update_policy
+stdout 'daily'
+
+# Test setting valid config values
+exec axen config set check_for_updates false
+exec axen config get check_for_updates
+stdout 'false'
+
+exec axen config set default_update_policy weekly
+exec axen config get default_update_policy
+stdout 'weekly'
+
+# Verify JSON format on disk
+exists $AXEN_TEST_HOME/.axen/config.json
+grep '"check_for_updates": false' $AXEN_TEST_HOME/.axen/config.json
+grep '"default_update_policy": "weekly"' $AXEN_TEST_HOME/.axen/config.json
+
+# Test invalid update policy rejection
+! exec axen config set default_update_policy invalid_policy
+stdout 'invalid update policy'
+
+# Test unknown config key
+! exec axen config get unknown_key
+stdout 'unknown key'
