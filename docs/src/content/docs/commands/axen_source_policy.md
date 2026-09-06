@@ -1,20 +1,20 @@
 ---
-title: axen source remove
-description: Reference for axen source remove
+title: axen source policy
+description: Reference for axen source policy
 ---
 
-## axen source remove
+## axen source policy
 
-Remove a source and all its installed skills
+Set the auto-update policy for a source
 
 ```
-axen source remove <name> [flags]
+axen source policy <name> <daily|weekly|manual> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for remove
+  -h, --help   help for policy
 ```
 
 ### Options inherited from parent commands

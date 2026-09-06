@@ -5,18 +5,19 @@ description: Reference for axen source add
 
 ## axen source add
 
-Add a skill repository to your local registry
+Add a new source (GitHub repo or local path)
 
 ```
-axen source add [url|path] [flags]
+axen source add <source> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help          help for add
-  -i, --install       Install all skills immediately after adding the source
-  -n, --name string   Override the auto-derived namespace name
+  -h, --help                   help for add
+  -i, --install                Install all skills immediately after adding the source
+  -n, --name string            Custom name for the source namespace
+  -u, --update-policy string   Set the auto-update policy (daily, weekly, manual) (default "daily")
 ```
 
 ### Options inherited from parent commands
@@ -27,5 +28,5 @@ axen source add [url|path] [flags]
 
 ### SEE ALSO
 
-* [axen source](axen_source.md)	 - Manage skill repositories (sources)
+* [axen source](axen_source.md)	 - Manage skill sources (add, remove, list)
 

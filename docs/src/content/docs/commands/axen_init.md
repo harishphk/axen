@@ -8,7 +8,7 @@ description: Reference for axen init
 Scan for skills and generate/update axen.json
 
 ```
-axen init [flags]
+axen init [dir] [flags]
 ```
 
 ### Options

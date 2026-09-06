@@ -47,6 +47,7 @@ Write-Host "Installing Axen $LatestTag (windows/$Arch)..."
 $VersionNum = $LatestTag.TrimStart('v')
 $FileName = "axen_${VersionNum}_windows_${Arch}.zip"
 $DownloadUrl = "https://github.com/$GitHubRepo/releases/download/$LatestTag/$FileName"
+$ChecksumUrl = "https://github.com/$GitHubRepo/releases/download/$LatestTag/checksums.txt"
 
 # Create a temporary directory for extraction
 $TempDir = Join-Path $env:TEMP "axen-installer"
@@ -56,9 +57,30 @@ if (Test-Path $TempDir) {
 New-Item -ItemType Directory -Path $TempDir | Out-Null
 
 $ZipPath = Join-Path $TempDir $FileName
+$ChecksumPath = Join-Path $TempDir "checksums.txt"
 
 Write-Host "Downloading from $DownloadUrl..."
 Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
+
+Write-Host "Verifying checksum..."
+try {
+    Invoke-WebRequest -Uri $ChecksumUrl -OutFile $ChecksumPath -UseBasicParsing
+    $ExpectedHash = ""
+    Get-Content $ChecksumPath | ForEach-Object {
+        $parts = $_ -split "\s+"
+        if ($parts.Length -ge 2 -and $parts[1].Trim() -eq $FileName) {
+            $ExpectedHash = $parts[0].Trim().ToLower()
+        }
+    }
+    if ($ExpectedHash) {
+        $ActualHash = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash.ToLower()
+        if ($ActualHash -ne $ExpectedHash) {
+            Write-Error "Checksum verification failed! Expected: $ExpectedHash, got: $ActualHash"
+        }
+    }
+} catch {
+    Write-Warning "Could not verify checksum: $_"
+}
 
 Write-Host "Extracting..."
 Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force

@@ -7,6 +7,13 @@ on:
     types: [opened, synchronize, reopened, edited]
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Lint, Test, and Build
@@ -65,3 +72,16 @@ jobs:
 
       - name: Build Binary (Dry Run)
         run: go build -v ./cmd/axen
+
+      - name: Cross-Compile Verification (All Target Architectures)
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/axen
+          GOOS=windows GOARCH=arm64 go build -o /dev/null ./cmd/axen
+          GOOS=darwin  GOARCH=arm64 go build -o /dev/null ./cmd/axen
+          GOOS=darwin  GOARCH=amd64 go build -o /dev/null ./cmd/axen
+          GOOS=linux   GOARCH=arm64 go build -o /dev/null ./cmd/axen
+
+      - name: Verify CLI Documentation is Up-to-Date
+        run: |
+          go run cmd/docs/main.go
+          git diff --exit-code docs/src/content/docs/commands || (echo "❌ Error: CLI command docs are out of date! Run 'go run cmd/docs/main.go' and commit the changes." && exit 1)

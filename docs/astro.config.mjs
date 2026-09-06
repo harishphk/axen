@@ -4,7 +4,7 @@ import starlight from "@astrojs/starlight";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://axen.devhttps://axen.domains.workers.dev",
+  site: "https://axen.domains.workers.dev",
   integrations: [
     starlight({
       title: "Axen",
