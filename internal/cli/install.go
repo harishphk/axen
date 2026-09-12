@@ -3,11 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/harishphk/axen/internal/core"
 	"github.com/harishphk/axen/internal/models"
 	"github.com/harishphk/axen/internal/resolvers"
-	"github.com/harishphk/axen/internal/services"
 	"github.com/harishphk/axen/internal/ui"
 	"github.com/harishphk/axen/internal/utils"
 
@@ -25,6 +25,7 @@ type RunInstallOptions struct {
 	ConflictStrategy string
 	SkipAutoDetect   bool
 	SkipFetchSpinner bool
+	CachedManifest   *core.SourceManifest
 }
 
 func NewCmdInstall(deps *Dependencies) *cobra.Command {
@@ -82,17 +83,19 @@ func NewCmdInstall(deps *Dependencies) *cobra.Command {
 }
 
 func runInstall(ctx context.Context, deps *Dependencies, namespaceName string, opts RunInstallOptions) error {
-	lockfile, err := core.ReadLockfile()
-	if err != nil {
-		return err
-	}
-
 	if opts.DryRun {
 		ui.PrintDryRunBanner()
 	}
 
+	var lockfile *models.Lockfile
+
 	// --- Resolve namespace ---
 	if namespaceName == "" {
+		var err error
+		lockfile, err = core.ReadLockfile()
+		if err != nil {
+			return err
+		}
 		scanned, _ := core.ScanSkills(".")
 		hasLocal := core.HasManifest(".") || len(scanned) > 0
 		ns, err := ui.PromptNamespaceSelection(deps.Prompter, lockfile, hasLocal)
@@ -104,41 +107,56 @@ func runInstall(ctx context.Context, deps *Dependencies, namespaceName string, o
 
 	sourceURL := namespaceName
 	if namespaceName != "." {
-		nsEntry, exists := lockfile.Namespaces[namespaceName]
-		if !exists {
-			return fmt.Errorf("source not found: %s", namespaceName)
+		if opts.CachedManifest != nil && opts.CachedManifest.FetchResult != nil {
+			sourceURL = opts.CachedManifest.FetchResult.ResolvedSource
+		} else {
+			if lockfile == nil {
+				var err error
+				lockfile, err = core.ReadLockfile()
+				if err != nil {
+					return err
+				}
+			}
+			nsEntry, exists := lockfile.Namespaces[namespaceName]
+			if !exists {
+				return fmt.Errorf("source not found: %s", namespaceName)
+			}
+			sourceURL = nsEntry.Source
 		}
-		sourceURL = nsEntry.Source
 	}
 
-	svc := &services.InstallService{}
-
-	var spinner *pterm.SpinnerPrinter
-	fetchOpts := services.FetchOptions{}
-	if !opts.SkipFetchSpinner {
-		fetchOpts.OnFetchStart = func(ns string) {
-			spinner, _ = utils.StartSpinner("Fetching " + ns + "...")
-		}
-		fetchOpts.OnFetchDone = func(ns string, err error) {
-			if err != nil {
-				spinner.Fail("Failed to fetch")
+	var sourceManifest *core.SourceManifest
+	if opts.CachedManifest != nil {
+		sourceManifest = opts.CachedManifest
+	} else {
+		var spinner *pterm.SpinnerPrinter
+		inspectOpts := core.InspectOptions{}
+		if !opts.SkipFetchSpinner {
+			inspectOpts.OnFetchStart = func(ns string) {
+				spinner, _ = utils.StartSpinner("Fetching " + ns + "...")
+			}
+			inspectOpts.OnFetchDone = func(ns string, err error) {
+				if err != nil && spinner != nil {
+					spinner.Fail("Failed to fetch")
+				}
 			}
 		}
+
+		var err error
+		sourceManifest, err = deps.Engine.Inspect(ctx, sourceURL, namespaceName, inspectOpts)
+		if err != nil {
+			return err
+		}
+		if !opts.SkipFetchSpinner && spinner != nil {
+			spinner.Success(fmt.Sprintf("Fetched %s (%s)", namespaceName, sourceManifest.FetchResult.ResolvedSource))
+		}
 	}
 
-	fetchResult, manifest, err := svc.FetchManifest(ctx, sourceURL, namespaceName, fetchOpts)
-	if err != nil {
-		return err
-	}
-	if !opts.SkipFetchSpinner && spinner != nil {
-		spinner.Success(fmt.Sprintf("Fetched %s (%s)", namespaceName, fetchResult.ResolvedSource))
-	}
+	manifest := sourceManifest.Manifest
 
-	// Build scope
-	var effectiveScope []string
 	var addBundles []string
 	var addSkills []string
-	syncAll := false
+	syncAll := opts.AllSkills
 
 	for _, bName := range opts.BundleFilter {
 		if _, ok := manifest.Bundles[bName]; !ok {
@@ -146,65 +164,52 @@ func runInstall(ctx context.Context, deps *Dependencies, namespaceName string, o
 		}
 	}
 
-	if opts.AllSkills {
-		syncAll = true
-	}
-
 	if len(opts.BundleFilter) == 0 && len(opts.SkillFilter) == 0 && !opts.AllSkills {
-		defaultBundleFound := false
-		if !opts.SkipAutoDetect {
-			for name, b := range manifest.Bundles {
-				if b.IsDefault {
-					utils.Warn("Auto-installing default bundle: " + name)
-					addBundles = []string{name}
-					effectiveScope = append(effectiveScope, b.Skills...)
-					defaultBundleFound = true
-					break
-				}
-			}
-		}
+		// Check if a default bundle exists to skip interactive prompt
+		hasDefaultBundle := !opts.SkipAutoDetect && manifest.HasDefaultBundle()
 
-		if !defaultBundleFound {
-			var newSkillNames []string
-			for s := range manifest.Skills {
-				if entry, ok := lockfile.Namespaces[namespaceName]; !ok || func() bool { _, e := entry.Skills.Installed[s]; return !e }() {
-					newSkillNames = append(newSkillNames, s)
+		if !hasDefaultBundle {
+			if lockfile == nil {
+				var err error
+				lockfile, err = core.ReadLockfile()
+				if err != nil {
+					return err
 				}
 			}
+
+			var newSkillNames []string
+			entry, nsExists := lockfile.Namespaces[namespaceName]
+			for s := range manifest.Skills {
+				if nsExists {
+					if _, installed := entry.Skills.Installed[s]; installed {
+						continue
+					}
+				}
+				newSkillNames = append(newSkillNames, s)
+			}
+			sort.Strings(newSkillNames)
+
 			installedCount := 0
-			if entry, ok := lockfile.Namespaces[namespaceName]; ok {
+			if nsExists {
 				installedCount = len(entry.Skills.Installed)
 			}
 			selectedSkills, selectedBundles, isAll, err := ui.PromptSkillSelection(deps.Prompter, namespaceName, newSkillNames, installedCount, len(manifest.Skills), manifest.Bundles)
 			if err != nil {
 				return err
 			}
-			if len(selectedSkills) == 0 && !isAll {
+			if len(selectedSkills) == 0 && len(selectedBundles) == 0 && !isAll {
 				utils.Warn("No skills selected. Aborting.")
 				return nil
 			}
 
 			if isAll {
 				syncAll = true
-			} else if len(selectedBundles) > 0 {
-				addBundles = selectedBundles
-				for _, bName := range selectedBundles {
-					if b, ok := manifest.Bundles[bName]; ok {
-						effectiveScope = append(effectiveScope, b.Skills...)
-					}
-				}
 			} else {
+				addBundles = selectedBundles
 				addSkills = selectedSkills
-				effectiveScope = append(effectiveScope, selectedSkills...)
 			}
 		}
 	} else {
-		effectiveScope = append(effectiveScope, opts.SkillFilter...)
-		for _, bName := range opts.BundleFilter {
-			if b, ok := manifest.Bundles[bName]; ok {
-				effectiveScope = append(effectiveScope, b.Skills...)
-			}
-		}
 		addSkills = opts.SkillFilter
 		addBundles = opts.BundleFilter
 	}
@@ -220,34 +225,32 @@ func runInstall(ctx context.Context, deps *Dependencies, namespaceName string, o
 		}
 	}
 
-	req := services.InstallRequest{
-		NamespaceName:    namespaceName,
-		SourceURL:        sourceURL,
-		FetchResult:      fetchResult,
-		Manifest:         manifest,
-		AddSkills:        addSkills,
-		AddBundles:       addBundles,
-		SetSyncAll:       syncAll,
-		SetTargets:       selectedTargets,
-		Force:            opts.Force,
-		DryRun:           opts.DryRun,
-		UpdateMode:       syncAll,
+	spec := core.InstallSpec{
+		NamespaceName:  namespaceName,
+		SourceURL:      sourceURL,
+		SourceManifest: sourceManifest,
+		AddSkills:      addSkills,
+		AddBundles:     addBundles,
+		SyncAll:        syncAll,
+		Targets:        selectedTargets,
+		TargetScope:    selectedTargets,
+		Force:          opts.Force,
+		DryRun:         opts.DryRun,
+		UpdateMode:     syncAll,
+		SkipAutoDetect: opts.SkipAutoDetect,
+		OnDefaultBundleDetected: func(bName string) {
+			utils.Warn("Auto-installing default bundle: " + bName)
+		},
 		ConflictStrategy: opts.ConflictStrategy,
 		ConflictResolver: func(skillName string, candidates []core.ConflictCandidate) (string, error) {
 			return ui.PromptConflictResolution(deps.Prompter, skillName, candidates)
 		},
-		UntrackedResolver: func(conflicts []core.UntrackedConflict) (map[string]bool, error) {
+		UntrackedConflictResolver: func(conflicts []core.UntrackedConflict) (map[string]bool, error) {
 			return ui.PromptUntrackedConflicts(deps.Prompter, conflicts)
 		},
 	}
-	if !syncAll && len(effectiveScope) > 0 {
-		req.SkillScope = effectiveScope
-	}
-	if len(selectedTargets) > 0 {
-		req.TargetScope = selectedTargets
-	}
 
-	result, err := svc.Install(ctx, req)
+	result, err := deps.Engine.Install(ctx, spec)
 	if err != nil {
 		return err
 	}

@@ -29,3 +29,16 @@ func NewManifest(name string) *Manifest {
 		Bundles:     make(map[string]Bundle),
 	}
 }
+
+// HasDefaultBundle reports whether any bundle in the manifest is marked as default.
+func (m *Manifest) HasDefaultBundle() bool {
+	if m == nil {
+		return false
+	}
+	for _, b := range m.Bundles {
+		if b.IsDefault {
+			return true
+		}
+	}
+	return false
+}

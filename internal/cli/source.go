@@ -3,12 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/harishphk/axen/internal/core"
 	"github.com/harishphk/axen/internal/models"
 	"github.com/harishphk/axen/internal/resolvers"
-	"github.com/harishphk/axen/internal/services"
 	"github.com/harishphk/axen/internal/utils"
 
 	"github.com/pterm/pterm"
@@ -58,7 +56,7 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 		Short: "List all registered skill sources",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSourceList()
+			return runSourceList(cmd.Context(), deps)
 		},
 	}
 	cmd.AddCommand(listCmd)
@@ -93,7 +91,7 @@ func NewCmdSource(deps *Dependencies) *cobra.Command {
 			}
 			defer lock.Unlock()
 
-			return runSourcePolicy(cmd.Context(), args[0], args[1])
+			return runSourcePolicy(cmd.Context(), deps, args[0], args[1])
 		},
 	})
 
@@ -106,37 +104,34 @@ func runSourceAdd(ctx context.Context, deps *Dependencies, source string, instal
 		namespaceName = resolvers.DeriveNamespace(source)
 	}
 
-	installSvc := &services.InstallService{}
-	
 	var spinner *pterm.SpinnerPrinter
-	fetchOpts := services.FetchOptions{
+	inspectOpts := core.InspectOptions{
 		OnFetchStart: func(ns string) {
 			spinner, _ = utils.StartSpinner("Fetching " + source + "...")
 		},
 		OnFetchDone: func(ns string, err error) {
-			if err != nil {
+			if err != nil && spinner != nil {
 				spinner.Fail("Failed to fetch")
 			}
 		},
 	}
 
-	fetchResult, manifest, err := installSvc.FetchManifest(ctx, source, namespaceName, fetchOpts)
+	sourceManifest, err := deps.Engine.Inspect(ctx, source, namespaceName, inspectOpts)
 	if err != nil {
 		return err
 	}
 	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Fetched %s (%s)", namespaceName, fetchResult.ResolvedSource))
+		spinner.Success(fmt.Sprintf("Fetched %s (%s)", namespaceName, sourceManifest.FetchResult.ResolvedSource))
 	}
 
-	sourceSvc := &services.SourceService{}
-	err = sourceSvc.Add(services.SourceAddRequest{
+	err = deps.Engine.AddSource(ctx, core.SourceAddRequest{
 		NamespaceName: namespaceName,
-		SourceURL:     fetchResult.ResolvedSource,
-		SourceType:    string(fetchResult.Type),
-		Ref:           fetchResult.Ref,
+		SourceURL:     sourceManifest.FetchResult.ResolvedSource,
+		SourceType:    string(sourceManifest.FetchResult.Type),
+		Ref:           sourceManifest.FetchResult.Ref,
 		UpdatePolicy:  updatePolicy,
-		Targets:       manifest.Targets,
-		Manifest:      manifest,
+		Targets:       sourceManifest.Manifest.Targets,
+		Manifest:      sourceManifest.Manifest,
 	})
 	if err != nil {
 		return err
@@ -144,22 +139,22 @@ func runSourceAdd(ctx context.Context, deps *Dependencies, source string, instal
 
 	utils.Success("Successfully added source %s!", pterm.Cyan(namespaceName))
 
-	// Chain into the interactive installer
+	// Chain into the interactive installer with pre-inspected manifest
 	opts := RunInstallOptions{
 		AllSkills:        installFlag,
 		SkipAutoDetect:   false,
 		SkipFetchSpinner: true,
+		CachedManifest:   sourceManifest,
 	}
 	return runInstall(ctx, deps, namespaceName, opts)
 }
 
-func runSourcePolicy(ctx context.Context, namespaceName string, policy string) error {
+func runSourcePolicy(ctx context.Context, deps *Dependencies, namespaceName string, policy string) error {
 	if !models.IsValidUpdatePolicy(policy) {
 		return utils.NewAxenError(fmt.Sprintf("invalid policy %q (must be daily, weekly, or manual)", policy), "INVALID_POLICY")
 	}
 
-	svc := &services.SourceService{}
-	err := svc.SetPolicy(namespaceName, policy)
+	err := deps.Engine.SetSourcePolicy(ctx, namespaceName, policy)
 	if err != nil {
 		return err
 	}
@@ -168,13 +163,13 @@ func runSourcePolicy(ctx context.Context, namespaceName string, policy string) e
 	return nil
 }
 
-func runSourceList() error {
-	lockfile, err := core.ReadLockfile()
+func runSourceList(ctx context.Context, deps *Dependencies) error {
+	sources, err := deps.Engine.ListSources(ctx)
 	if err != nil {
 		return err
 	}
 
-	if len(lockfile.Namespaces) == 0 {
+	if len(sources) == 0 {
 		utils.Warn("No sources registered. Use `axen source add <url>` to add one.")
 		return nil
 	}
@@ -183,20 +178,12 @@ func runSourceList() error {
 		{"Namespace", "Source", "Type", "Installed Skills"},
 	}
 
-	var names []string
-	for name := range lockfile.Namespaces {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		entry := lockfile.Namespaces[name]
-		installedCount := len(entry.Skills.Installed)
+	for _, s := range sources {
 		tableData = append(tableData, []string{
-			name,
-			entry.Source,
-			entry.Type,
-			fmt.Sprintf("%d", installedCount),
+			s.Namespace,
+			s.Source,
+			s.Type,
+			fmt.Sprintf("%d", s.InstalledSkillsCount),
 		})
 	}
 

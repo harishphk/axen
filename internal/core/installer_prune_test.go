@@ -82,3 +82,97 @@ func TestPruneExisting(t *testing.T) {
 		t.Fatalf("Expected test-target2 to be removed, got %v", prunes[0].Removed)
 	}
 }
+
+func TestPruneSkills_PreservesNonInstalledStatus(t *testing.T) {
+	tempHome := t.TempDir()
+	_ = os.Setenv("AXEN_TEST_HOME", tempHome)
+	defer func() { _ = os.Unsetenv("AXEN_TEST_HOME") }()
+
+	targetDest := filepath.Join(tempHome, "test-target-dest")
+	config := &models.Config{Targets: map[string]string{
+		"test-target": targetDest,
+	}}
+	_ = WriteConfig(config)
+	resolvers.ResetTargetPathCache()
+
+	statuses := []string{"conflict", "skipped", "untracked_conflict"}
+	for _, st := range statuses {
+		skillName := "skill-" + st
+		skillDir := filepath.Join(targetDest, skillName)
+		_ = os.MkdirAll(skillDir, 0755)
+		_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# "+st), 0644)
+
+		oldState := map[string]models.LockfileSkill{
+			skillName: {Targets: []string{"test-target"}},
+		}
+		newResults := []InstallResult{
+			{
+				SkillName: skillName,
+				Status:    st,
+			},
+		}
+
+		prunes, err := PruneSkills(oldState, newResults, []string{"test-target"}, false, nil)
+		if err != nil {
+			t.Fatalf("[%s] PruneSkills failed: %v", st, err)
+		}
+		if len(prunes) != 0 {
+			t.Fatalf("[%s] Expected 0 prunes, got %v", st, prunes)
+		}
+
+		// Ensure skill directory still exists
+		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); os.IsNotExist(err) {
+			t.Fatalf("[%s] Expected skill file to still exist on disk, but it was deleted", st)
+		}
+	}
+}
+
+func TestPruneSkills_PreservesSkippedDestinations(t *testing.T) {
+	tempHome := t.TempDir()
+	_ = os.Setenv("AXEN_TEST_HOME", tempHome)
+	defer func() { _ = os.Unsetenv("AXEN_TEST_HOME") }()
+
+	targetDest1 := filepath.Join(tempHome, "target1")
+	targetDest2 := filepath.Join(tempHome, "target2")
+	config := &models.Config{Targets: map[string]string{
+		"target1": targetDest1,
+		"target2": targetDest2,
+	}}
+	_ = WriteConfig(config)
+	resolvers.ResetTargetPathCache()
+
+	skillDir1 := filepath.Join(targetDest1, "my-skill")
+	skillDir2 := filepath.Join(targetDest2, "my-skill")
+	_ = os.MkdirAll(skillDir1, 0755)
+	_ = os.MkdirAll(skillDir2, 0755)
+	_ = os.WriteFile(filepath.Join(skillDir1, "SKILL.md"), []byte("# target 1"), 0644)
+	_ = os.WriteFile(filepath.Join(skillDir2, "SKILL.md"), []byte("# target 2"), 0644)
+
+	oldState := map[string]models.LockfileSkill{
+		"my-skill": {Targets: []string{"target1", "target2"}},
+	}
+	// Status is installed because target1 succeeded, but target2 was skipped due to conflict
+	newResults := []InstallResult{
+		{
+			SkillName: "my-skill",
+			Status:    "installed",
+			Destinations: []Destination{
+				{Target: "target1", Path: skillDir1},
+			},
+			SkippedDestinations: []Destination{
+				{Target: "target2", Path: skillDir2},
+			},
+		},
+	}
+
+	prunes, err := PruneSkills(oldState, newResults, []string{"target1", "target2"}, false, nil)
+	if err != nil {
+		t.Fatalf("PruneSkills failed: %v", err)
+	}
+	if len(prunes) != 0 {
+		t.Fatalf("Expected 0 prunes, got %v", prunes)
+	}
+	if _, err := os.Stat(filepath.Join(skillDir2, "SKILL.md")); os.IsNotExist(err) {
+		t.Fatalf("target2 skill was deleted from disk!")
+	}
+}
