@@ -2,9 +2,9 @@ package cli
 
 import (
 	"context"
+	"sort"
 
 	"github.com/harishphk/axen/internal/core"
-	"github.com/harishphk/axen/internal/services"
 	"github.com/harishphk/axen/internal/ui"
 	"github.com/harishphk/axen/internal/utils"
 
@@ -110,6 +110,7 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 		for s := range nsEntry.Skills.Installed {
 			installed = append(installed, s)
 		}
+		sort.Strings(installed)
 		isAll, selectedSkills, selectedBundles, err := ui.PromptRemoveMode(deps.Prompter, namespaceName, installed, nsEntry.Bundles)
 		if err != nil {
 			return err
@@ -130,124 +131,38 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 		for s := range nsEntry.Skills.Installed {
 			skillsToRemove = append(skillsToRemove, s)
 		}
+		sort.Strings(skillsToRemove)
 		bundlesToRemove = nsEntry.Bundles
 	} else {
 		skillsToRemove = opts.SkillsFilter
 		bundlesToRemove = opts.BundleFilter
 	}
 
-	installSvc := &services.InstallService{}
-	
-	var spinner *pterm.SpinnerPrinter
-	fetchOpts := services.FetchOptions{
-		OnFetchStart: func(ns string) {
-			spinner, _ = utils.StartSpinner("Computing state for " + namespaceName + "...")
-		},
-		OnFetchDone: func(ns string, err error) {
-			if err != nil {
-				spinner.Fail("Failed to fetch state")
-			}
-		},
-	}
-
-	fetchResult, manifest, err := installSvc.FetchManifest(ctx, nsEntry.Source, namespaceName, fetchOpts)
-	if err != nil {
-		return err
-	}
-	if spinner != nil {
-		spinner.Success("Computed state")
-	}
-
-	currentIntent := core.GetIntent(lockfile, namespaceName)
-	isPartialRemove := !opts.All && (len(skillsToRemove) > 0 || len(bundlesToRemove) > 0)
-	var setSyncAll *bool
-	var addSkills []string
-	var addExcluded []string
-
-	if currentIntent.SyncAll && isPartialRemove && !opts.DryRun && !opts.Exclude {
-		if len(skillsToRemove) > 0 {
-			excludeMode, err := ui.PromptSyncAllRemoval(deps.Prompter, namespaceName)
-			if err != nil {
-				return err
-			}
-			if excludeMode {
-				opts.Exclude = true
-			}
-		}
-
-		if !opts.Exclude {
-			f := false
-			setSyncAll = &f
-
-			remainingBundles := make(map[string]bool)
-			for _, b := range currentIntent.Bundles {
-				remainingBundles[b] = true
-			}
-			for _, b := range bundlesToRemove {
-				delete(remainingBundles, b)
-			}
-
-			bundleCoveredSkills := make(map[string]bool)
-			for bName := range remainingBundles {
-				if bundle, ok := manifest.Bundles[bName]; ok {
-					for _, s := range bundle.Skills {
-						bundleCoveredSkills[s] = true
-					}
-				}
-			}
-
-			removeSet := make(map[string]bool)
-			for _, r := range skillsToRemove {
-				removeSet[r] = true
-			}
-			for _, bName := range bundlesToRemove {
-				if bundle, ok := manifest.Bundles[bName]; ok {
-					for _, s := range bundle.Skills {
-						removeSet[s] = true
-					}
-				}
-			}
-
-			for skillName := range nsEntry.Skills.Installed {
-				if removeSet[skillName] {
-					continue
-				}
-				if bundleCoveredSkills[skillName] {
-					continue
-				}
-				addSkills = append(addSkills, skillName)
-			}
-		}
-	}
-
-	if opts.All {
-		f := false
-		setSyncAll = &f
-	}
-
-	if opts.Exclude && len(skillsToRemove) > 0 {
-		addExcluded = skillsToRemove
-	}
-
-	req := services.RemoveRequest{
+	spec := core.RemoveSpec{
 		NamespaceName: namespaceName,
-		SourceURL:     nsEntry.Source,
-		FetchResult:   fetchResult,
-		Manifest:      manifest,
+		RemoveAll:     opts.All,
 		RemoveSkills:  skillsToRemove,
 		RemoveBundles: bundlesToRemove,
-		AddSkills:     addSkills,
-		AddExcluded:   addExcluded,
-		SetSyncAll:    setSyncAll,
-		RemoveAll:     opts.All,
-		DryRun:        opts.DryRun,
+		Exclude:       opts.Exclude,
+		PromptExclude: func(ns string) (bool, error) {
+			return ui.PromptSyncAllRemoval(deps.Prompter, ns)
+		},
+		OnNamespaceEmpty: func(ns string) (bool, error) {
+			if opts.IsSourceRemove || opts.All {
+				return true, nil
+			}
+			return ui.PromptSourceRemoval(deps.Prompter, ns)
+		},
+		OnRemovedSource: func(ns string) {
+			utils.Success("Removed source repository %s", pterm.Cyan(ns))
+		},
+		DryRun: opts.DryRun,
 		ConflictResolver: func(skillName string, candidates []core.ConflictCandidate) (string, error) {
 			return ui.PromptConflictResolution(deps.Prompter, skillName, candidates)
 		},
 	}
 
-	svc := &services.RemoveService{}
-	result, err := svc.Remove(ctx, req)
+	result, err := deps.Engine.Remove(ctx, spec)
 	if err != nil {
 		return err
 	}
@@ -257,35 +172,8 @@ func runRemove(ctx context.Context, deps *Dependencies, namespaceName string, op
 		ui.PrintRemoveResults(p.SkillName, p.Removed)
 	}
 
-	if !opts.DryRun {
-		if opts.IsSourceRemove {
-			utils.Success("Successfully removed source %s!", pterm.Cyan(namespaceName))
-		}
-
-		// Re-read lockfile to check if namespace is empty
-		lockfile, _ = core.ReadLockfile()
-		if ns, ok := lockfile.Namespaces[namespaceName]; ok && len(ns.Skills.Installed) == 0 {
-			removeSource := true
-			if !opts.IsSourceRemove {
-				var promptErr error
-				removeSource, promptErr = ui.PromptSourceRemoval(deps.Prompter, namespaceName)
-				if promptErr != nil {
-					return promptErr
-				}
-			}
-			if removeSource {
-				lockfile = core.RemoveNamespace(lockfile, namespaceName)
-				_ = core.WriteLockfile(lockfile)
-
-				cache, _ := core.ReadSourcesIndex()
-				if cache != nil {
-					delete(cache.Namespaces, namespaceName)
-					_ = core.WriteSourcesIndex(cache)
-				}
-
-				utils.Success("Removed source repository %s", pterm.Cyan(namespaceName))
-			}
-		}
+	if !opts.DryRun && opts.IsSourceRemove {
+		utils.Success("Successfully removed source %s!", pterm.Cyan(namespaceName))
 	}
 
 	return nil

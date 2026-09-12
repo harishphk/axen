@@ -1,10 +1,10 @@
 package core
 
 import (
+	"fmt"
 	"github.com/harishphk/axen/internal/models"
 	"github.com/harishphk/axen/internal/resolvers"
 	"github.com/harishphk/axen/internal/utils"
-	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -83,7 +83,6 @@ func isTargetTracked(lockfile *models.Lockfile, skillName string, target string)
 	}
 	return false
 }
-
 
 func InstallSkills(
 	sourceDir string,
@@ -228,7 +227,6 @@ func InstallSkills(
 			}
 		}
 	}
-
 
 	for _, skillName := range skillNames {
 		skillEntry := manifest.Skills[skillName]
@@ -537,12 +535,27 @@ func PruneSkills(
 
 	newState := make(map[string][]string)
 	for _, res := range newInstallResults {
-		if res.Status == "installed" {
+		switch res.Status {
+		case "installed":
 			var tgs []string
 			for _, d := range res.Destinations {
 				tgs = append(tgs, d.Target)
 			}
+			for _, d := range res.SkippedDestinations {
+				tgs = append(tgs, d.Target)
+			}
 			newState[res.SkillName] = tgs
+		default:
+			if old, ok := oldSkillsState[res.SkillName]; ok {
+				targets := old.Targets
+				if len(targets) == 0 {
+					targets = oldNamespaceTargets
+				}
+				if len(targets) == 0 {
+					targets = resolvers.GetDetectedTargets()
+				}
+				newState[res.SkillName] = targets
+			}
 		}
 	}
 
